@@ -1,6 +1,7 @@
 """
 AI-powered multi-room chat and task management FastAPI application.
 """
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -15,7 +16,7 @@ from app.routers import ai, auth, messages, rooms, tasks, ws
 async def lifespan(app: FastAPI):
     """
     Lifespan context manager for startup and shutdown events.
-    
+
     TODO:
         - Connect to MongoDB on startup
         - Initialize any background tasks (e.g., observer)
@@ -24,9 +25,9 @@ async def lifespan(app: FastAPI):
     # Startup
     await connect_to_mongo()
     print("✓ Connected to MongoDB")
-    
+
     yield
-    
+
     # Shutdown
     await close_mongo_connection()
     print("✓ Closed MongoDB connection")
@@ -37,7 +38,7 @@ app = FastAPI(
     title="AI Rooms API",
     description="AI-powered multi-room chat and task management system",
     version="0.1.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Configure CORS
@@ -64,20 +65,24 @@ from fastapi import FastAPI
 
 app = FastAPI()
 
-@app.get("/health")  
+
+@app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
 
 @app.get("/")
 async def root():
     """
     Root endpoint.
-    
+
     Returns:
         dict: Welcome message
     """
-    return {
-        "message": "AI Rooms API",
-        "version": "0.1.0",
-        "docs": "/docs"
-    }
+    return {"message": "AI Rooms API", "version": "0.1.0", "docs": "/docs"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)
