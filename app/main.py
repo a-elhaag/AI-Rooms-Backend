@@ -60,16 +60,13 @@ app.include_router(ai.router)
 app.include_router(ws.router)
 
 
-@app.get("/health")
-async def health_check():
-    """
-    Health check endpoint.
-    
-    Returns:
-        dict: Health status
-    """
-    return {"status": "healthy"}
+from fastapi import FastAPI
 
+app = FastAPI()
+
+@app.get("/health")  
+async def health_check():
+    return {"status": "healthy"}
 
 @app.get("/")
 async def root():
