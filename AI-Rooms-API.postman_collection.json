@@ -1,0 +1,593 @@
+{
+  "info": {
+    "_postman_id": "ai-rooms-api-collection",
+    "name": "AI Rooms API - Complete Collection",
+    "description": "Complete Postman collection for testing the AI Rooms API. This is a POC with simplified authentication (no JWT tokens required).\n\n## Setup\n1. Start the backend: `docker-compose up -d`\n2. API will be available at: http://localhost:8000\n3. MongoDB Admin UI at: http://localhost:8081 (admin/admin123)\n\n## Environment Variables\nSet these in Postman environment:\n- `base_url`: http://localhost:8000\n- `user_id`: Will be set automatically after registration/login\n- `room_id`: Will be set automatically after room creation\n- `message_id`: Will be set automatically after message creation\n- `task_id`: Will be set automatically after task creation",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('user_id', response.id);",
+                  "    pm.environment.set('username', response.username);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"test123\",\n  \"preferred_language\": \"en\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Register a new user account. After successful registration, the user_id is automatically saved to environment variables."
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('user_id', response.id);",
+                  "    pm.environment.set('username', response.username);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"test123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login with username and password. Returns user information (no JWT token in POC mode)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me?user_id={{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "me"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}"
+                }
+              ]
+            },
+            "description": "Get current user information. In POC mode, pass user_id as query parameter."
+          },
+          "response": []
+        }
+      ],
+      "description": "Authentication endpoints - simplified for POC (no JWT tokens)"
+    },
+    {
+      "name": "Rooms",
+      "item": [
+        {
+          "name": "Create Room",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('room_id', response.id);",
+                  "    pm.environment.set('join_code', response.join_code);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My Project Room\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/rooms?user_id={{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["rooms"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}"
+                }
+              ]
+            },
+            "description": "Create a new room. A unique join code is automatically generated."
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Rooms",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/rooms?user_id={{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["rooms"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}"
+                }
+              ]
+            },
+            "description": "Get all rooms that the current user is a member of."
+          },
+          "response": []
+        },
+        {
+          "name": "Join Room",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"join_code\": \"{{join_code}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/rooms/join?user_id={{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["rooms", "join"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}"
+                }
+              ]
+            },
+            "description": "Join an existing room using the join code."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Room Members",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/rooms/{{room_id}}/members?user_id={{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["rooms", "{{room_id}}", "members"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}"
+                }
+              ]
+            },
+            "description": "Get all members of a specific room."
+          },
+          "response": []
+        }
+      ],
+      "description": "Room management endpoints"
+    },
+    {
+      "name": "Messages",
+      "item": [
+        {
+          "name": "Send Message",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('message_id', response.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Hello, this is my first message!\",\n  \"type\": \"text\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/rooms/{{room_id}}/messages?user_id={{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["rooms", "{{room_id}}", "messages"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}"
+                }
+              ]
+            },
+            "description": "Send a message to a room. Type can be: text, image, or system."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Room Messages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/rooms/{{room_id}}/messages?user_id={{user_id}}&limit=50",
+              "host": ["{{base_url}}"],
+              "path": ["rooms", "{{room_id}}", "messages"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "description": "Number of messages to retrieve (1-100)"
+                },
+                {
+                  "key": "before",
+                  "value": "",
+                  "description": "Message ID for pagination (get messages before this ID)",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get messages from a room with pagination support."
+          },
+          "response": []
+        }
+      ],
+      "description": "Message endpoints for chat functionality"
+    },
+    {
+      "name": "Tasks",
+      "item": [
+        {
+          "name": "Create Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('task_id', response.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Implement user authentication\",\n  \"assignee_id\": \"{{user_id}}\",\n  \"due_date\": \"2025-12-31T23:59:59Z\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/rooms/{{room_id}}/tasks?user_id={{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["rooms", "{{room_id}}", "tasks"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}"
+                }
+              ]
+            },
+            "description": "Create a new task in a room. Assignee can be a user_id or 'ai'."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Room Tasks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/rooms/{{room_id}}/tasks?user_id={{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["rooms", "{{room_id}}", "tasks"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}"
+                }
+              ]
+            },
+            "description": "Get all tasks for a specific room."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Task",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in_progress\",\n  \"title\": \"Updated task title\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tasks/{{task_id}}?user_id={{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["tasks", "{{task_id}}"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}"
+                }
+              ]
+            },
+            "description": "Update task details. Status can be: todo, in_progress, or done."
+          },
+          "response": []
+        }
+      ],
+      "description": "Task management endpoints"
+    },
+    {
+      "name": "AI Operations",
+      "item": [
+        {
+          "name": "Rewrite Text",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"hey can u help me with this project?\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ai/rewrite?user_id={{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["ai", "rewrite"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}"
+                }
+              ]
+            },
+            "description": "Rewrite text in the user's personal style (AI feature - currently stub)."
+          },
+          "response": []
+        },
+        {
+          "name": "Translate Text",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Hello, how are you?\",\n  \"target_language\": \"ar\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ai/translate?user_id={{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["ai", "translate"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}"
+                }
+              ]
+            },
+            "description": "Translate text to target language (AI feature - currently stub)."
+          },
+          "response": []
+        },
+        {
+          "name": "Summarize Room",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"room_id\": \"{{room_id}}\",\n  \"last_n_messages\": 20\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ai/summarize-room?user_id={{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["ai", "summarize-room"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}"
+                }
+              ]
+            },
+            "description": "Generate a summary of recent room messages (AI feature - currently stub)."
+          },
+          "response": []
+        },
+        {
+          "name": "Debug AI",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ai/debug?user_id={{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["ai", "debug"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}"
+                }
+              ]
+            },
+            "description": "Debug endpoint for AI agent state and decisions."
+          },
+          "response": []
+        }
+      ],
+      "description": "AI-powered features (currently stubs for POC)"
+    },
+    {
+      "name": "Health & Info",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Check if the API is running."
+          },
+          "response": []
+        },
+        {
+          "name": "Root Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            },
+            "description": "Get API information and documentation links."
+          },
+          "response": []
+        }
+      ],
+      "description": "System health and information endpoints"
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "username",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "room_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "join_code",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "message_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "task_id",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
