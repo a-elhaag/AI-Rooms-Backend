@@ -14,14 +14,6 @@ from app.routers import ai, auth, messages, rooms, tasks, ws
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Lifespan context manager for startup and shutdown events.
-
-    TODO:
-        - Connect to MongoDB on startup
-        - Initialize any background tasks (e.g., observer)
-        - Close MongoDB connection on shutdown
-    """
     # Startup
     await connect_to_mongo()
     print("✓ Connected to MongoDB")
@@ -68,12 +60,6 @@ async def health_check():
 
 @app.get("/")
 async def root():
-    """
-    Root endpoint.
-
-    Returns:
-        dict: Welcome message
-    """
     return {"message": "AI Rooms API", "version": "0.1.0", "docs": "/docs"}
 
 
