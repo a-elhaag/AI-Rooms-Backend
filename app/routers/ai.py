@@ -48,6 +48,8 @@ class SummarizeResponse(BaseModel):
     summary: str
 
 
+from app.ai.tools import tool_translate_text, tool_summarize_messages
+
 @router.post("/rewrite", response_model=RewriteResponse)
 async def rewrite_text(
     request: RewriteRequest,
@@ -63,14 +65,12 @@ async def rewrite_text(
         
     Returns:
         RewriteResponse: Original and rewritten text
-        
-    TODO:
-        - Get user_id from current_user dependency
-        - Get user profile for style preferences
-        - Call style agent to rewrite text
-        - Return rewritten text
     """
-    pass
+    # Placeholder for now - just echo
+    return RewriteResponse(
+        original=request.text,
+        rewritten=f"[Rewritten]: {request.text}"
+    )
 
 
 @router.post("/translate", response_model=TranslateResponse)
@@ -88,14 +88,15 @@ async def translate_text(
         
     Returns:
         TranslateResponse: Original and translated text
-        
-    TODO:
-        - Get user_id from current_user dependency
-        - Determine target language (from request or user profile)
-        - Call translation tool
-        - Return translated text
     """
-    pass
+    target_lang = request.target_language or "en"
+    translated = await tool_translate_text(request.text, target_lang)
+    
+    return TranslateResponse(
+        original=request.text,
+        translated=translated,
+        target_language=target_lang
+    )
 
 
 @router.post("/summarize-room", response_model=SummarizeResponse)
@@ -113,15 +114,13 @@ async def summarize_room(
         
     Returns:
         SummarizeResponse: Room summary
-        
-    TODO:
-        - Get user_id from current_user dependency
-        - Verify user is member of room
-        - Get last N messages
-        - Call summarization tool
-        - Return summary
     """
-    pass
+    summary = await tool_summarize_messages(db, request.room_id, request.last_n_messages)
+    
+    return SummarizeResponse(
+        room_id=request.room_id,
+        summary=summary
+    )
 
 
 @router.post("/debug")

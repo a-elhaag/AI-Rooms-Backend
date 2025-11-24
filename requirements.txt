@@ -15,8 +15,7 @@ pydantic-settings==2.6.0
 
 # LangChain and AI (for future use)
 langchain==0.3.7
-langchain-google-genai==2.0.5
-google-generativeai==0.8.3
+google-genai==0.3.0
 
 # Utilities
 python-dotenv==1.0.1
