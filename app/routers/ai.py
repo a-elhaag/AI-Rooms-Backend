@@ -1,6 +1,7 @@
 """
 AI router for direct AI operations (rewrite, translate, summarize, etc.).
 """
+
 from typing import Optional
 
 from fastapi import APIRouter, Depends
@@ -14,23 +15,27 @@ router = APIRouter(prefix="/ai", tags=["AI"])
 
 class RewriteRequest(BaseModel):
     """Request schema for text rewriting."""
+
     text: str = Field(..., min_length=1)
 
 
 class RewriteResponse(BaseModel):
     """Response schema for text rewriting."""
+
     original: str
     rewritten: str
 
 
 class TranslateRequest(BaseModel):
     """Request schema for translation."""
+
     text: str = Field(..., min_length=1)
     target_language: Optional[str] = None
 
 
 class TranslateResponse(BaseModel):
     """Response schema for translation."""
+
     original: str
     translated: str
     target_language: str
@@ -38,17 +43,20 @@ class TranslateResponse(BaseModel):
 
 class SummarizeRequest(BaseModel):
     """Request schema for room summarization."""
+
     room_id: str
     last_n_messages: int = Field(default=20, ge=1, le=100)
 
 
 class SummarizeResponse(BaseModel):
     """Response schema for room summarization."""
+
     room_id: str
     summary: str
 
 
-from app.ai.tools import tool_translate_text, tool_summarize_messages
+from app.ai.tools import tool_summarize_messages, tool_translate_text
+
 
 @router.post("/rewrite", response_model=RewriteResponse)
 async def rewrite_text(
@@ -58,18 +66,17 @@ async def rewrite_text(
 ) -> RewriteResponse:
     """
     Rewrite text using user's personal style.
-    
+
     Args:
         request: Text to rewrite
         db: Database instance
-        
+
     Returns:
         RewriteResponse: Original and rewritten text
     """
     # Placeholder for now - just echo
     return RewriteResponse(
-        original=request.text,
-        rewritten=f"[Rewritten]: {request.text}"
+        original=request.text, rewritten=f"[Rewritten]: {request.text}"
     )
 
 
@@ -81,21 +88,19 @@ async def translate_text(
 ) -> TranslateResponse:
     """
     Translate text to target language.
-    
+
     Args:
         request: Text and optional target language
         db: Database instance
-        
+
     Returns:
         TranslateResponse: Original and translated text
     """
     target_lang = request.target_language or "en"
     translated = await tool_translate_text(request.text, target_lang)
-    
+
     return TranslateResponse(
-        original=request.text,
-        translated=translated,
-        target_language=target_lang
+        original=request.text, translated=translated, target_language=target_lang
     )
 
 
@@ -107,20 +112,19 @@ async def summarize_room(
 ) -> SummarizeResponse:
     """
     Summarize recent messages in a room.
-    
+
     Args:
         request: Room ID and message count
         db: Database instance
-        
+
     Returns:
         SummarizeResponse: Room summary
     """
-    summary = await tool_summarize_messages(db, request.room_id, request.last_n_messages)
-    
-    return SummarizeResponse(
-        room_id=request.room_id,
-        summary=summary
+    summary = await tool_summarize_messages(
+        db, request.room_id, request.last_n_messages
     )
+
+    return SummarizeResponse(room_id=request.room_id, summary=summary)
 
 
 @router.post("/debug")
@@ -130,10 +134,10 @@ async def debug_ai(
 ) -> dict:
     """
     Debug endpoint for AI agent decisions.
-    
+
     Returns:
         dict: Debug information
-        
+
     TODO:
         - Return AI agent state, recent decisions, etc.
         - This is for debugging during development
