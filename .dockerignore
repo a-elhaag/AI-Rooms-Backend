@@ -24,6 +24,7 @@ ENV/
 .pytest_cache/
 .coverage
 htmlcov/
+test-results/
 
 # Git
 .git
@@ -32,14 +33,24 @@ htmlcov/
 # Documentation
 README.md
 *.md
+QUICKSTART.md
+GEMINI_MODELS.md
 
 # Docker
 Dockerfile
 docker-compose.yml
 .dockerignore
 
-# macOS
-.DS_Store
-
 # Postman
 *.postman_collection.json
+
+# Logs
+*.log
+logs/
+
+# Temporary
+tmp/
+.temp/
+
+# macOS
+.DS_Store

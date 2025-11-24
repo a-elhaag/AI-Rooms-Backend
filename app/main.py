@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import ORJSONResponse
 
 from app.config import get_settings
 from app.db import close_mongo_connection, connect_to_mongo
@@ -27,6 +28,7 @@ app = FastAPI(
     description="AI-powered multi-room chat and task management system",
     version="0.1.0",
     lifespan=lifespan,
+    default_response_class=ORJSONResponse,
 )
 
 # Configure CORS

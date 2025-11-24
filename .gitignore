@@ -24,6 +24,23 @@ ENV/
 .pytest_cache/
 .coverage
 htmlcov/
+test-results/
+
+# Logs
+*.log
+logs/
+
+# Temporary
+tmp/
+.temp/
+
+# Distribution
+dist/
+build/
+*.egg-info/
+
+# Jupyter Notebook
+.ipynb_checkpoints
 
 # macOS
 .DS_Store
