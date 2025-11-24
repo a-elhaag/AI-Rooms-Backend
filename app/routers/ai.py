@@ -60,7 +60,9 @@ from app.ai.tools import (
     tool_rephrase_text,
     tool_summarize_messages,
     tool_translate_text,
+    tool_update_room_kb,
 )
+from app.models.kb import KnowledgeBaseResponse
 
 
 @router.post("/rephrase", response_model=RephraseResponse)
@@ -125,6 +127,40 @@ async def summarize_room(
     )
 
     return SummarizeResponse(room_id=request.room_id, summary=summary)
+
+
+class UpdateKBRequest(BaseModel):
+    """Request schema for updating the Knowledge Base."""
+
+    room_id: str
+    summary: Optional[str] = None
+    key_decision: Optional[str] = None
+    important_link: Optional[str] = None
+
+
+@router.post("/update-kb", response_model=KnowledgeBaseResponse)
+async def update_kb(
+    request: UpdateKBRequest,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+) -> KnowledgeBaseResponse:
+    """
+    Update the Knowledge Base for a room.
+
+    Args:
+        request: UpdateKBRequest containing room_id and optional fields to update
+        db: Database instance
+
+    Returns:
+        KnowledgeBaseResponse: Updated Knowledge Base
+    """
+    updated_kb = await tool_update_room_kb(
+        db,
+        request.room_id,
+        summary=request.summary,
+        key_decision=request.key_decision,
+        important_link=request.important_link,
+    )
+    return KnowledgeBaseResponse(**updated_kb)
 
 
 @router.post("/debug")

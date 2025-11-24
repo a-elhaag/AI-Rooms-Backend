@@ -317,6 +317,28 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "Update Knowledge Base",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"room_id\": \"{{room_id}}\",\n  \"summary\": \"Updated summary of the room.\",\n  \"key_decision\": \"Key decision made during the meeting.\",\n  \"important_link\": \"https://example.com/important-link\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/ai/update-kb",
+              "host": ["{{base_url}}"],
+              "path": ["ai", "update-kb"]
+            }
+          },
+          "response": []
         }
       ]
     }

@@ -167,16 +167,6 @@ async def tool_list_tasks(
 
 
 async def tool_translate_text(text: str, target_language: str) -> str:
-    """
-    Translate text to target language using Google Translate or similar.
-
-    Args:
-        text: Text to translate
-        target_language: Target language code (e.g., "ar", "en")
-
-    Returns:
-        str: Translated text
-    """
     prompt = f"Translate the following text to {target_language}:\n\n{text}"
     return await gemini_client.generate_response(prompt)
 
@@ -184,17 +174,7 @@ async def tool_translate_text(text: str, target_language: str) -> str:
 async def tool_summarize_messages(
     db: AsyncIOMotorDatabase, room_id: str, last_n: int = 20
 ) -> str:
-    """
-    Summarize recent messages in a room.
 
-    Args:
-        db: Database instance
-        room_id: Room ID
-        last_n: Number of recent messages to summarize
-
-    Returns:
-        str: Summary text
-    """
     # Fetch recent messages from DB
     messages = []
     try:
@@ -250,13 +230,42 @@ async def tool_update_room_kb(
 
     Returns:
         dict: Updated KB information
-
-    TODO:
-        - Use KBService to update KB
-        - Append key_decision or important_link if provided
-        - Return KB data
     """
-    pass
+    # Fetch the existing KB for the room
+    kb = await db["knowledge_bases"].find_one({"room_id": ObjectId(room_id)})
+
+    if not kb:
+        # If no KB exists, create a new one
+        kb = {
+            "room_id": ObjectId(room_id),
+            "summary": summary or "",
+            "key_decisions": [key_decision] if key_decision else [],
+            "important_links": [important_link] if important_link else [],
+            "updated_at": datetime.utcnow(),
+        }
+        await db["knowledge_bases"].insert_one(kb)
+    else:
+        # Update the existing KB
+        update_fields = {"updated_at": datetime.utcnow()}
+
+        if summary:
+            update_fields["summary"] = summary
+        if key_decision:
+            update_fields.setdefault("key_decisions", kb.get("key_decisions", []))
+            update_fields["key_decisions"].append(key_decision)
+        if important_link:
+            update_fields.setdefault("important_links", kb.get("important_links", []))
+            update_fields["important_links"].append(important_link)
+
+        await db["knowledge_bases"].update_one(
+            {"room_id": ObjectId(room_id)}, {"$set": update_fields}
+        )
+
+    # Fetch and return the updated KB
+    updated_kb = await db["knowledge_bases"].find_one({"room_id": ObjectId(room_id)})
+    updated_kb["room_id"] = str(updated_kb["room_id"])
+    updated_kb["updated_at"] = updated_kb["updated_at"].isoformat()
+    return updated_kb
 
 
 # Search and Information Tools

@@ -1,7 +1,3 @@
-"""
-AI-powered multi-room chat and task management FastAPI application.
-"""
-
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
