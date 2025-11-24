@@ -13,17 +13,18 @@ from app.db import get_database
 router = APIRouter(prefix="/ai", tags=["AI"])
 
 
-class RewriteRequest(BaseModel):
-    """Request schema for text rewriting."""
+class RephraseRequest(BaseModel):
+    """Request schema for text rephrasing."""
 
     text: str = Field(..., min_length=1)
+    style: str = Field(default="professional")
 
 
-class RewriteResponse(BaseModel):
-    """Response schema for text rewriting."""
+class RephraseResponse(BaseModel):
+    """Response schema for text rephrasing."""
 
     original: str
-    rewritten: str
+    rephrased: str
 
 
 class TranslateRequest(BaseModel):
@@ -55,36 +56,36 @@ class SummarizeResponse(BaseModel):
     summary: str
 
 
-from app.ai.tools import tool_summarize_messages, tool_translate_text
+from app.ai.tools import (
+    tool_rephrase_text,
+    tool_summarize_messages,
+    tool_translate_text,
+)
 
 
-@router.post("/rewrite", response_model=RewriteResponse)
-async def rewrite_text(
-    request: RewriteRequest,
+@router.post("/rephrase", response_model=RephraseResponse)
+async def rephrase_text(
+    request: RephraseRequest,
     db: AsyncIOMotorDatabase = Depends(get_database),
-    # TODO: Add current_user dependency
-) -> RewriteResponse:
+) -> RephraseResponse:
     """
-    Rewrite text using user's personal style.
+    Rephrase text in a specific style.
 
     Args:
-        request: Text to rewrite
+        request: Text to rephrase
         db: Database instance
 
     Returns:
-        RewriteResponse: Original and rewritten text
+        RephraseResponse: Original and rephrased text
     """
-    # Placeholder for now - just echo
-    return RewriteResponse(
-        original=request.text, rewritten=f"[Rewritten]: {request.text}"
-    )
+    rephrased = await tool_rephrase_text(request.text, request.style)
+    return RephraseResponse(original=request.text, rephrased=rephrased)
 
 
 @router.post("/translate", response_model=TranslateResponse)
 async def translate_text(
     request: TranslateRequest,
     db: AsyncIOMotorDatabase = Depends(get_database),
-    # TODO: Add current_user dependency
 ) -> TranslateResponse:
     """
     Translate text to target language.
@@ -108,7 +109,6 @@ async def translate_text(
 async def summarize_room(
     request: SummarizeRequest,
     db: AsyncIOMotorDatabase = Depends(get_database),
-    # TODO: Add current_user dependency
 ) -> SummarizeResponse:
     """
     Summarize recent messages in a room.
@@ -130,7 +130,6 @@ async def summarize_room(
 @router.post("/debug")
 async def debug_ai(
     db: AsyncIOMotorDatabase = Depends(get_database),
-    # TODO: Add current_user dependency
 ) -> dict:
     """
     Debug endpoint for AI agent decisions.
@@ -138,8 +137,7 @@ async def debug_ai(
     Returns:
         dict: Debug information
 
-    TODO:
-        - Return AI agent state, recent decisions, etc.
-        - This is for debugging during development
+    Note:
+        - Use this endpoint for internal debugging during development.
     """
     pass

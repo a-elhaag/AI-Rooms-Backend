@@ -10,11 +10,15 @@ These tools provide concrete actions the AI can take:
 - KB updates
 """
 
+from datetime import datetime
 from typing import Any, Optional
 
+from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.ai.gemini_client import gemini_client
+from app.models.message import Message
+from app.models.task import Task
 
 # Task Management Tools
 
@@ -38,12 +42,44 @@ async def tool_create_task(
 
     Returns:
         dict: Created task information
-
-    TODO:
-        - Use TaskService to create task
-        - Return task data
     """
-    pass
+    task_data = {
+        "room_id": ObjectId(room_id),
+        "title": title,
+        "status": "todo",
+        "created_at": datetime.utcnow(),
+    }
+
+    if assignee_id:
+        if assignee_id == "ai":
+            task_data["assignee_id"] = "ai"
+        else:
+            try:
+                task_data["assignee_id"] = ObjectId(assignee_id)
+            except:
+                pass  # Ignore invalid object ids for now
+
+    if due_date:
+        try:
+            task_data["due_date"] = datetime.fromisoformat(
+                due_date.replace("Z", "+00:00")
+            )
+        except ValueError:
+            pass
+
+    # Create task model to validate (optional but good practice)
+    # task = Task(**task_data) # Skipping full validation for simplicity in tool
+
+    result = await db["tasks"].insert_one(task_data)
+    task_data["_id"] = str(result.inserted_id)
+    task_data["room_id"] = str(task_data["room_id"])
+    if "assignee_id" in task_data and isinstance(task_data["assignee_id"], ObjectId):
+        task_data["assignee_id"] = str(task_data["assignee_id"])
+    task_data["created_at"] = task_data["created_at"].isoformat()
+    if "due_date" in task_data and isinstance(task_data["due_date"], datetime):
+        task_data["due_date"] = task_data["due_date"].isoformat()
+
+    return task_data
 
 
 async def tool_update_task(
@@ -63,12 +99,35 @@ async def tool_update_task(
 
     Returns:
         dict: Updated task information
-
-    TODO:
-        - Use TaskService to update task
-        - Return task data
     """
-    pass
+    update_data = {}
+    if status:
+        update_data["status"] = status
+    if assignee_id:
+        if assignee_id == "ai":
+            update_data["assignee_id"] = "ai"
+        else:
+            try:
+                update_data["assignee_id"] = ObjectId(assignee_id)
+            except:
+                pass
+
+    if not update_data:
+        return {"error": "No fields to update"}
+
+    try:
+        result = await db["tasks"].find_one_and_update(
+            {"_id": ObjectId(task_id)}, {"$set": update_data}, return_document=True
+        )
+        if result:
+            result["_id"] = str(result["_id"])
+            result["room_id"] = str(result["room_id"])
+            if "assignee_id" in result and isinstance(result["assignee_id"], ObjectId):
+                result["assignee_id"] = str(result["assignee_id"])
+            return result
+        return {"error": "Task not found"}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 async def tool_list_tasks(
@@ -84,13 +143,24 @@ async def tool_list_tasks(
 
     Returns:
         list[dict]: List of tasks
-
-    TODO:
-        - Use TaskService to get tasks
-        - Filter by status if provided
-        - Return task list
     """
-    pass
+    query = {"room_id": ObjectId(room_id)}
+    if status:
+        query["status"] = status
+
+    tasks = []
+    cursor = db["tasks"].find(query).sort("created_at", -1).limit(20)
+    async for task in cursor:
+        task["_id"] = str(task["_id"])
+        task["room_id"] = str(task["room_id"])
+        if "assignee_id" in task and isinstance(task["assignee_id"], ObjectId):
+            task["assignee_id"] = str(task["assignee_id"])
+        task["created_at"] = task["created_at"].isoformat()
+        if "due_date" in task and isinstance(task["due_date"], datetime):
+            task["due_date"] = task["due_date"].isoformat()
+        tasks.append(task)
+
+    return tasks
 
 
 # Communication Tools
@@ -125,12 +195,34 @@ async def tool_summarize_messages(
     Returns:
         str: Summary text
     """
-    # TODO: Fetch actual messages from DB
-    # messages = await get_recent_messages(db, room_id, last_n)
-    # message_text = "\n".join([f"{m['sender']}: {m['content']}" for m in messages])
+    # Fetch recent messages from DB
+    messages = []
+    try:
+        cursor = (
+            db["messages"]
+            .find({"room_id": ObjectId(room_id)})
+            .sort("created_at", -1)
+            .limit(last_n)
+        )
+        async for msg in cursor:
+            messages.append(msg)
+    except Exception:
+        pass  # Handle invalid room_id gracefully
 
-    # Placeholder for now
-    message_text = "User1: Hello\nUser2: Hi there\nUser1: Let's work on the project."
+    if not messages:
+        return "No messages found to summarize."
+
+    # Reverse to chronological order
+    messages.reverse()
+
+    # Format for LLM
+    message_text = ""
+    for msg in messages:
+        sender = (
+            "AI" if msg.get("user_id") == "ai" else "User"
+        )  # In real app, fetch username
+        content = msg.get("content", "")
+        message_text += f"{sender}: {content}\n"
 
     prompt = f"Summarize the following conversation:\n\n{message_text}"
     return await gemini_client.generate_response(prompt)
@@ -211,6 +303,21 @@ async def tool_generate_image(prompt: str, style: Optional[str] = None) -> str:
 
 
 # Style and Rewriting Tools
+
+
+async def tool_rephrase_text(text: str, style: str = "professional") -> str:
+    """
+    Rephrase text in a specific style.
+
+    Args:
+        text: Text to rephrase
+        style: Target style (e.g., "professional", "casual", "concise")
+
+    Returns:
+        str: Rephrased text
+    """
+    prompt = f"Rephrase the following text to be more {style}. Return ONLY the rephrased text without any introductory or concluding remarks, and without any formatting like markdown or quotes:\n\n{text}"
+    return await gemini_client.generate_response(prompt)
 
 
 async def tool_rewrite_in_user_style(

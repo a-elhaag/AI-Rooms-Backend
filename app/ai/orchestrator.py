@@ -4,10 +4,17 @@ AI Orchestrator for managing agent decisions and workflow.
 
 from typing import Any, Optional
 
+from google.genai import types
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.ai.gemini_client import gemini_client
-from app.ai.tools import tool_create_task, tool_web_search
+from app.ai.tools import (
+    tool_create_task,
+    tool_list_tasks,
+    tool_summarize_messages,
+    tool_translate_text,
+    tool_web_search,
+)
 
 
 class AIOrchestrator:
@@ -35,7 +42,7 @@ class AIOrchestrator:
                                 },
                                 "assignee_id": {
                                     "type": "STRING",
-                                    "description": "The user ID to assign the task to (optional)",
+                                    "description": "The user ID to assign the task to (optional, use 'ai' for AI)",
                                 },
                                 "due_date": {
                                     "type": "STRING",
@@ -43,6 +50,19 @@ class AIOrchestrator:
                                 },
                             },
                             "required": ["title"],
+                        },
+                    },
+                    {
+                        "name": "list_tasks",
+                        "description": "List tasks in the current room.",
+                        "parameters": {
+                            "type": "OBJECT",
+                            "properties": {
+                                "status": {
+                                    "type": "STRING",
+                                    "description": "Filter by status (todo, in_progress, done)",
+                                }
+                            },
                         },
                     },
                     {
@@ -59,6 +79,37 @@ class AIOrchestrator:
                             "required": ["query"],
                         },
                     },
+                    {
+                        "name": "translate_text",
+                        "description": "Translate text to a target language.",
+                        "parameters": {
+                            "type": "OBJECT",
+                            "properties": {
+                                "text": {
+                                    "type": "STRING",
+                                    "description": "The text to translate",
+                                },
+                                "target_language": {
+                                    "type": "STRING",
+                                    "description": "The target language code (e.g., 'en', 'ar', 'fr')",
+                                },
+                            },
+                            "required": ["text", "target_language"],
+                        },
+                    },
+                    {
+                        "name": "summarize_messages",
+                        "description": "Summarize the recent conversation in the room.",
+                        "parameters": {
+                            "type": "OBJECT",
+                            "properties": {
+                                "last_n": {
+                                    "type": "INTEGER",
+                                    "description": "Number of messages to summarize (default 20)",
+                                }
+                            },
+                        },
+                    },
                 ]
             }
         ]
@@ -73,33 +124,38 @@ class AIOrchestrator:
             return None
 
         # 1. Prepare context (history)
-        # TODO: Fetch real history from DB
+        # NOTE: Placeholder history - integrate DB fetching in future
         history = []
 
-        # 2. Call Gemini with Tools
-        response = await gemini_client.chat_with_history(
-            message=content,
+        # 2. Create Chat Session
+        chat = await gemini_client.create_chat(
             history=history,
-            system_instruction="You are a helpful AI assistant in a group chat. You can create tasks and search the web.",
+            system_instruction="You are a helpful AI assistant in a group chat. You can create tasks, search the web, translate text, and summarize conversations.",
             tools=self._get_tool_definitions(),
         )
 
-        # 3. Handle Response (Text or Function Call)
-        # Note: The SDK response structure depends on the version.
-        # We check for function calls in the candidates.
+        if not chat:
+            return None
 
+        # 3. Send User Message
         try:
-            candidate = response.candidates[0]
-            for part in candidate.content.parts:
+            response = chat.send_message(content)
+
+            # 4. Handle Tool Calls Loop
+            # We loop because the model might chain multiple tool calls
+            while response.candidates and response.candidates[0].content.parts:
+                part = response.candidates[0].content.parts[0]
+
                 if part.function_call:
                     fc = part.function_call
                     tool_name = fc.name
                     args = fc.args
 
+                    print(f"Executing tool: {tool_name} with args: {args}")
+
                     # Execute the tool
                     result = None
                     if tool_name == "create_task":
-                        # Inject db and room_id
                         result = await tool_create_task(
                             self.db,
                             room_id,
@@ -107,31 +163,46 @@ class AIOrchestrator:
                             assignee_id=args.get("assignee_id"),
                             due_date=args.get("due_date"),
                         )
-                        return {
-                            "action": "tool_call",
-                            "tool": "create_task",
-                            "result": result,
-                            "response_text": f"✅ I've created the task: {args.get('title')}",
-                        }
-
+                    elif tool_name == "list_tasks":
+                        result = await tool_list_tasks(
+                            self.db,
+                            room_id,
+                            status=args.get("status"),
+                        )
                     elif tool_name == "search_web":
-                        # Execute search
-                        search_results = await tool_web_search(args.get("query"))
-                        # In a real loop, we would feed this back to the LLM.
-                        # For now, just return the result.
-                        return {
-                            "action": "tool_call",
-                            "tool": "search_web",
-                            "result": search_results,
-                            "response_text": f"Here is what I found: {search_results[0]['snippet']}",
-                        }
+                        result = await tool_web_search(args.get("query"))
+                    elif tool_name == "translate_text":
+                        result = await tool_translate_text(
+                            text=args.get("text"),
+                            target_language=args.get("target_language"),
+                        )
+                    elif tool_name == "summarize_messages":
+                        result = await tool_summarize_messages(
+                            self.db,
+                            room_id,
+                            last_n=int(args.get("last_n", 20)),
+                        )
 
-            # If no function call, return text
+                    # Send result back to Gemini
+                    # The SDK expects a Part with function_response
+                    response = chat.send_message(
+                        types.Part.from_function_response(
+                            name=tool_name, response={"result": result}
+                        )
+                    )
+                else:
+                    # No function call, just text response
+                    break
+
+            # Return final text response
             return {"action": "send_message", "content": response.text}
 
         except Exception as e:
             print(f"Error processing AI response: {e}")
-            return None
+            return {
+                "action": "send_message",
+                "content": "Sorry, I encountered an error processing your request.",
+            }
 
     async def handle_command(
         self, room_id: str, user_id: str, command: str, args: dict

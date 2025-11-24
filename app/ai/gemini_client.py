@@ -27,7 +27,7 @@ class GeminiClient:
     async def generate_response(
         self,
         prompt: str,
-        model: str = "gemini-2.0-flash-exp",
+        model: str = "gemini-2.5-flash-lite",
         system_instruction: Optional[str] = None,
     ) -> str:
         """
@@ -35,7 +35,7 @@ class GeminiClient:
 
         Args:
             prompt: User prompt
-            model: Model name (default: gemini-2.0-flash-exp)
+            model: Model name (default: gemini-2.5-flash-lite)
             system_instruction: Optional system instruction
 
         Returns:
@@ -48,10 +48,14 @@ class GeminiClient:
         if system_instruction:
             config["system_instruction"] = system_instruction
 
-        response = self.client.models.generate_content(
-            model=model, contents=prompt, config=config
-        )
-        return response.text
+        try:
+            response = self.client.models.generate_content(
+                model=model, contents=prompt, config=config
+            )
+            return response.text
+        except Exception as e:
+            print(f"Gemini API Error: {e}")
+            return f"I'm sorry, I'm currently overloaded. Please try again in a moment. (Error: {str(e)})"
 
     async def search_web(self, query: str) -> str:
         """
@@ -66,17 +70,49 @@ class GeminiClient:
         if not self.client:
             return "Error: Google API Key not configured."
 
-        # Use Gemini 2.0 Flash or Pro for search grounding
-        response = self.client.models.generate_content(
-            model="gemini-2.0-flash-exp",
-            contents=query,
-            config={"tools": [{"google_search": {}}]},
-        )
+        try:
+            # Use Gemini 2.5 Flash Lite for search grounding
+            response = self.client.models.generate_content(
+                model="gemini-2.5-flash-lite",
+                contents=query,
+                config={"tools": [{"google_search": {}}]},
+            )
+            return response.text
+        except Exception as e:
+            print(f"Gemini Search Error: {e}")
+            return f"I couldn't search the web right now. (Error: {str(e)})"
 
-        # Extract text from response
-        # Note: The actual search results (metadata) are in response.candidates[0].grounding_metadata
-        # But for now we just return the synthesized text.
-        return response.text
+    async def create_chat(
+        self,
+        history: List[Dict[str, str]],
+        system_instruction: str = "You are a helpful AI assistant in a group chat.",
+        tools: Optional[List[Dict[str, Any]]] = None,
+    ) -> Any:
+        """
+        Create a new chat session.
+
+        Args:
+            history: List of dicts with 'role' ('user' or 'model') and 'parts' (text)
+            system_instruction: System prompt
+            tools: Optional list of tool definitions (JSON schema)
+
+        Returns:
+            ChatSession object
+        """
+        if not self.client:
+            return None
+
+        config = {"system_instruction": system_instruction}
+        if tools:
+            config["tools"] = tools
+
+        try:
+            return self.client.chats.create(
+                model="gemini-2.5-flash-lite", config=config, history=history
+            )
+        except Exception as e:
+            print(f"Gemini Chat Error: {e}")
+            return None
 
     async def chat_with_history(
         self,
@@ -105,7 +141,7 @@ class GeminiClient:
             config["tools"] = tools
 
         chat = self.client.chats.create(
-            model="gemini-2.0-flash-exp", config=config, history=history
+            model="gemini-2.5-flash-lite", config=config, history=history
         )
 
         response = chat.send_message(message)
