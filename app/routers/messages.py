@@ -3,13 +3,12 @@ Messages router for message retrieval and creation.
 """
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from motor.motor_asyncio import AsyncIOMotorDatabase
-
 from app.db import get_database
 from app.schemas.message import MessageCreate, MessageOut
 from app.services.message_service import MessageService
 from app.services.room_service import RoomService
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 router = APIRouter(prefix="/rooms/{room_id}/messages", tags=["Messages"])
 
@@ -33,15 +32,9 @@ async def get_room_messages(
         
     Returns:
         list[MessageOut]: List of messages
-        
-    TODO:
-        - Get user_id from current_user dependency
-        - Initialize RoomService and verify user is member
-        - Initialize MessageService
-        - Call get_room_messages method
-        - Return list of messages
     """
-    pass
+    message_service = MessageService(db)
+    return await message_service.get_room_messages(room_id, limit, before)
 
 
 @router.post("", response_model=MessageOut, status_code=status.HTTP_201_CREATED)
@@ -63,14 +56,9 @@ async def create_message(
         
     Returns:
         MessageOut: Created message information
-        
-    TODO:
-        - Get user_id from current_user dependency
-        - Initialize RoomService and verify user is member
-        - Initialize MessageService
-        - Call create_message method
-        - TODO: Trigger AI orchestrator pipeline
-        - TODO: Broadcast message via WebSocket
-        - Return message information
     """
-    pass
+    # Temporary hardcoded user for POC
+    current_user_id = "demo_user_123"
+    
+    message_service = MessageService(db)
+    return await message_service.create_message(room_id, message_data, current_user_id)

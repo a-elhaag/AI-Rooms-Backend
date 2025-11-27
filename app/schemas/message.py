@@ -1,6 +1,7 @@
 """
 Message schemas for API requests and responses.
 """
+from datetime import datetime
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -22,7 +23,7 @@ class MessageOut(BaseModel):
     username: Optional[str] = None  # "AI" for AI messages, username for user messages
     content: str
     type: Literal["text", "image", "system"]
-    created_at: str
+    created_at: datetime
     
     class Config:
         from_attributes = True

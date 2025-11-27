@@ -4,11 +4,11 @@ Authentication service - Simplified for POC (no JWT, basic auth only).
 from datetime import datetime
 from typing import Optional
 
-from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorDatabase
-
 from app.schemas.auth import UserLogin, UserOut, UserRegister
 from app.utils.security import verify_password
+from bson import ObjectId
+from fastapi import HTTPException, status
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 
 class AuthService:
@@ -22,6 +22,7 @@ class AuthService:
             db: MongoDB database instance
         """
         self.db = db
+        self.collection = db.users
     
     async def register_user(self, user_data: UserRegister) -> UserOut:
         """
@@ -32,15 +33,33 @@ class AuthService:
             
         Returns:
             UserOut: Created user information
-            
-        TODO: 
-            - Check if username already exists
-            - Store password (plain text in POC - use hashing in production!)
-            - Create user document in users collection
-            - Create default user profile
-            - Return user information
         """
-        pass
+        # Check if username already exists
+        existing_user = await self.collection.find_one({"username": user_data.username})
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username already exists"
+            )
+        
+        # Create user document
+        now = datetime.utcnow()
+        user_doc = {
+            "username": user_data.username,
+            "password": user_data.password,  # Plain text for POC
+            "preferred_language": user_data.preferred_language,
+            "created_at": now,
+            "updated_at": now,
+        }
+        
+        result = await self.collection.insert_one(user_doc)
+        
+        return UserOut(
+            id=str(result.inserted_id),
+            username=user_data.username,
+            preferred_language=user_data.preferred_language,
+            created_at=now.isoformat(),
+        )
     
     async def login_user(self, credentials: UserLogin) -> UserOut:
         """
@@ -51,13 +70,29 @@ class AuthService:
             
         Returns:
             UserOut: User information if login successful
-            
-        TODO:
-            - Find user by username
-            - Verify password using verify_password()
-            - Return user information or raise HTTPException
         """
-        pass
+        # Find user by username
+        user = await self.collection.find_one({"username": credentials.username})
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid username or password"
+            )
+        
+        # Verify password
+        if not verify_password(credentials.password, user["password"]):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid username or password"
+            )
+        
+        return UserOut(
+            id=str(user["_id"]),
+            username=user["username"],
+            preferred_language=user.get("preferred_language", "en"),
+            created_at=user["created_at"].isoformat() if isinstance(user["created_at"], datetime) else user["created_at"],
+        )
     
     async def get_user_by_id(self, user_id: str) -> Optional[UserOut]:
         """
@@ -68,12 +103,21 @@ class AuthService:
             
         Returns:
             Optional[UserOut]: User information if found
-            
-        TODO:
-            - Query users collection by _id
-            - Return user data or None
         """
-        pass
+        try:
+            user = await self.collection.find_one({"_id": ObjectId(user_id)})
+        except:
+            return None
+            
+        if not user:
+            return None
+            
+        return UserOut(
+            id=str(user["_id"]),
+            username=user["username"],
+            preferred_language=user.get("preferred_language", "en"),
+            created_at=user["created_at"].isoformat() if isinstance(user["created_at"], datetime) else user["created_at"],
+        )
     
     async def get_user_by_username(self, username: str) -> Optional[dict]:
         """
@@ -84,9 +128,5 @@ class AuthService:
             
         Returns:
             Optional[dict]: User document or None
-            
-        TODO:
-            - Query users collection by username
-            - Return user document or None
         """
-        pass
+        return await self.collection.find_one({"username": username})

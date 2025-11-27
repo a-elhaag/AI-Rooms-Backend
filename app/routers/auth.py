@@ -2,12 +2,11 @@
 Authentication router for user registration, login, and profile.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from motor.motor_asyncio import AsyncIOMotorDatabase
-
 from app.db import get_database
 from app.schemas.auth import UserLogin, UserOut, UserRegister
 from app.services.auth_service import AuthService
+from fastapi import APIRouter, Depends, Header, HTTPException, status
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -25,14 +24,9 @@ async def register(
 
     Returns:
         UserOut: Created user information
-
-    TODO:
-        - Initialize AuthService
-        - Call register_user method
-        - Handle username already exists error
-        - Return user information
     """
-    pass
+    auth_service = AuthService(db)
+    return await auth_service.register_user(user_data)
 
 
 @router.post("/login", response_model=UserOut)
@@ -48,35 +42,40 @@ async def login(
 
     Returns:
         UserOut: Authenticated user information
-
-    TODO:
-        - Initialize AuthService
-        - Call login_user method
-        - Handle invalid credentials error
-        - Return user information
     """
-    pass
+    auth_service = AuthService(db)
+    return await auth_service.login_user(credentials)
 
 
 @router.get("/me", response_model=UserOut)
 async def get_current_user(
     db: AsyncIOMotorDatabase = Depends(get_database),
-    # TODO: Add JWT token dependency here
+    x_user_id: str = Header(None, alias="X-User-Id"),
 ) -> UserOut:
     """
     Get current authenticated user information.
+    POC mode: Uses X-User-Id header instead of JWT.
 
     Args:
         db: Database instance
+        x_user_id: User ID from header
 
     Returns:
         UserOut: Current user information
-
-    TODO:
-        - Create dependency to extract and verify JWT token
-        - Get user_id from token
-        - Initialize AuthService
-        - Call get_current_user method
-        - Return user information or 401 error
     """
-    pass
+    if not x_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+    
+    auth_service = AuthService(db)
+    user = await auth_service.get_user_by_id(x_user_id)
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found"
+        )
+    
+    return user

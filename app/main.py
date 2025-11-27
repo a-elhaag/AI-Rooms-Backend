@@ -1,24 +1,36 @@
+import logging
 from contextlib import asynccontextmanager
-
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.db import close_mongo_connection, connect_to_mongo
 from app.routers import ai, auth, messages, rooms, tasks, ws
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    await connect_to_mongo()
-    print("✓ Connected to MongoDB")
+    logger.info("Starting up AI Rooms API...")
+    try:
+        await connect_to_mongo()
+        logger.info("✓ Connected to MongoDB")
+    except Exception as e:
+        logger.error(f"Failed to connect to MongoDB: {e}")
+        raise e
 
     yield
 
     # Shutdown
     await close_mongo_connection()
-    print("✓ Closed MongoDB connection")
+    logger.info("✓ Closed MongoDB connection")
 
 
 # Initialize FastAPI app

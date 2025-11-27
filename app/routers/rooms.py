@@ -1,12 +1,11 @@
 """
 Rooms router for room creation, joining, and member management.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
-from motor.motor_asyncio import AsyncIOMotorDatabase
-
 from app.db import get_database
 from app.schemas.room import RoomCreate, RoomJoin, RoomMemberOut, RoomOut
 from app.services.room_service import RoomService
+from fastapi import APIRouter, Depends, HTTPException, status
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 router = APIRouter(prefix="/rooms", tags=["Rooms"])
 
@@ -24,14 +23,35 @@ async def get_user_rooms(
         
     Returns:
         list[RoomOut]: List of rooms
-        
-    TODO:
-        - Get user_id from current_user dependency
-        - Initialize RoomService
-        - Call get_user_rooms method
-        - Return list of rooms
     """
-    pass
+    # Temporary hardcoded user for POC
+    current_user_id = "demo_user_123"
+    
+    room_service = RoomService(db)
+    return await room_service.get_user_rooms(current_user_id)
+
+
+@router.post("", response_model=RoomOut, status_code=status.HTTP_201_CREATED)
+async def create_room(
+    room_data: RoomCreate,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    # TODO: Add current_user dependency
+) -> RoomOut:
+    """
+    Create a new room with auto-generated join code.
+    
+    Args:
+        room_data: Room creation data (name)
+        db: Database instance
+        
+    Returns:
+        RoomOut: Created room information
+    """
+    # Temporary hardcoded user for POC
+    current_user_id = "demo_user_123"
+    
+    room_service = RoomService(db)
+    return await room_service.create_room(room_data, current_user_id)
 
 
 @router.post("", response_model=RoomOut, status_code=status.HTTP_201_CREATED)

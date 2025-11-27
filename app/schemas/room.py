@@ -1,7 +1,8 @@
 """
 Room schemas for API requests and responses.
 """
-from typing import Literal
+from datetime import datetime
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -24,7 +25,12 @@ class RoomOut(BaseModel):
     id: str
     name: str
     join_code: str
-    created_at: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    member_count: int = 1
+    message_count: int = 0
+    has_ai: bool = True
+    description: Optional[str] = None
     
     class Config:
         from_attributes = True

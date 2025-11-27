@@ -1,11 +1,12 @@
 """
 Message service for message management and retrieval.
 """
-from typing import Optional
-
-from motor.motor_asyncio import AsyncIOMotorDatabase
+import uuid
+from datetime import datetime
+from typing import List, Optional
 
 from app.schemas.message import MessageCreate, MessageOut
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 
 class MessageService:
@@ -36,20 +37,26 @@ class MessageService:
             
         Returns:
             MessageOut: Created message information
-            
-        TODO:
-            - Create message document in messages collection
-            - If user_id is None, set to "ai"
-            - Return message information with username/AI label
         """
-        pass
+        message_doc = {
+            "id": str(uuid.uuid4()),
+            "room_id": room_id,
+            "user_id": user_id or "ai",
+            "username": "AI" if not user_id else "User",
+            "content": message_data.content,
+            "type": message_data.type,
+            "created_at": datetime.utcnow()
+        }
+        
+        await self.db.messages.insert_one(message_doc)
+        return MessageOut(**message_doc)
     
     async def get_room_messages(
         self,
         room_id: str,
         limit: int = 50,
         before: Optional[str] = None
-    ) -> list[MessageOut]:
+    ) -> List[MessageOut]:
         """
         Get messages from a room with pagination.
         
@@ -59,16 +66,22 @@ class MessageService:
             before: Message ID for cursor-based pagination
             
         Returns:
-            list[MessageOut]: List of messages with user information
-            
-        TODO:
-            - Query messages collection for room_id
-            - Apply pagination using before cursor
-            - Sort by created_at descending
-            - Join with users collection to get username (if not AI)
-            - Return list of messages
+            List[MessageOut]: List of messages with user information
         """
-        pass
+        query = {"room_id": room_id}
+        
+        if before:
+            # Find the "before" message to get its timestamp
+            before_msg = await self.db.messages.find_one({"id": before})
+            if before_msg:
+                query["created_at"] = {"$lt": before_msg["created_at"]}
+        
+        cursor = self.db.messages.find(query).sort("created_at", -1).limit(limit)
+        messages = []
+        async for doc in cursor:
+            messages.append(MessageOut(**doc))
+            
+        return messages
     
     async def get_recent_messages_for_context(
         self,

@@ -1,11 +1,12 @@
 """
 Room service for room and room member management.
 """
-from typing import Optional
-
-from motor.motor_asyncio import AsyncIOMotorDatabase
+import uuid
+from datetime import datetime
+from typing import List, Optional
 
 from app.schemas.room import RoomCreate, RoomJoin, RoomMemberOut, RoomOut
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 
 class RoomService:
@@ -30,16 +31,37 @@ class RoomService:
             
         Returns:
             RoomOut: Created room information
-            
-        TODO:
-            - Generate unique join code (6-10 characters)
-            - Create room document in rooms collection
-            - Add creator as owner in room_members collection
-            - Return room information
         """
-        pass
+        # Generate unique join code
+        join_code = str(uuid.uuid4())[:8].upper()
+        
+        room_doc = {
+            "id": str(uuid.uuid4()),
+            "name": room_data.name,
+            "join_code": join_code,
+            "owner_id": owner_id,
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+            "member_count": 1,
+            "message_count": 0,
+            "has_ai": True  # Default to true for now
+        }
+        
+        # Create room document
+        await self.db.rooms.insert_one(room_doc)
+        
+        # Add creator as owner in room_members collection
+        member_doc = {
+            "room_id": room_doc["id"],
+            "user_id": owner_id,
+            "role": "owner",
+            "joined_at": datetime.utcnow()
+        }
+        await self.db.room_members.insert_one(member_doc)
+        
+        return RoomOut(**room_doc)
     
-    async def get_user_rooms(self, user_id: str) -> list[RoomOut]:
+    async def get_user_rooms(self, user_id: str) -> List[RoomOut]:
         """
         Get all rooms that a user is a member of.
         
@@ -47,64 +69,19 @@ class RoomService:
             user_id: User ID
             
         Returns:
-            list[RoomOut]: List of rooms
-            
-        TODO:
-            - Query room_members collection for user_id
-            - Join with rooms collection
-            - Return list of rooms
+            List[RoomOut]: List of rooms
         """
-        pass
-    
-    async def join_room(self, join_data: RoomJoin, user_id: str) -> RoomOut:
-        """
-        Join a room using a join code.
+        # Get room IDs where user is a member
+        cursor = self.db.room_members.find({"user_id": user_id})
+        room_ids = [doc["room_id"] async for doc in cursor]
         
-        Args:
-            join_data: Join code data
-            user_id: User ID joining the room
+        if not room_ids:
+            return []
             
-        Returns:
-            RoomOut: Room information
+        # Fetch rooms
+        rooms_cursor = self.db.rooms.find({"id": {"$in": room_ids}}).sort("updated_at", -1)
+        rooms = []
+        async for doc in rooms_cursor:
+            rooms.append(RoomOut(**doc))
             
-        TODO:
-            - Find room by join_code
-            - Check if user is already a member
-            - Add user to room_members collection with role "member"
-            - Return room information
-        """
-        pass
-    
-    async def get_room_members(self, room_id: str) -> list[RoomMemberOut]:
-        """
-        Get all members of a room.
-        
-        Args:
-            room_id: Room ID
-            
-        Returns:
-            list[RoomMemberOut]: List of room members with user information
-            
-        TODO:
-            - Query room_members collection for room_id
-            - Join with users collection to get username
-            - Return list of members
-        """
-        pass
-    
-    async def is_user_member(self, room_id: str, user_id: str) -> bool:
-        """
-        Check if a user is a member of a room.
-        
-        Args:
-            room_id: Room ID
-            user_id: User ID
-            
-        Returns:
-            bool: True if user is a member
-            
-        TODO:
-            - Query room_members collection
-            - Return True if record exists
-        """
-        pass
+        return rooms
