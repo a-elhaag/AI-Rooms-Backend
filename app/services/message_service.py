@@ -61,6 +61,8 @@ class MessageService:
             "sender_name": sender_name,
             "sender_type": message_data.sender_type,
             "content": message_data.content,
+            "reply_to": message_data.reply_to,
+            "reactions": {},
             "created_at": datetime.utcnow()
         }
         
@@ -95,9 +97,59 @@ class MessageService:
         cursor = self.db.messages.find(query).sort("created_at", -1).limit(limit)
         messages = []
         async for doc in cursor:
+            # Ensure reply_to and reactions exist
+            doc.setdefault("reply_to", None)
+            doc.setdefault("reactions", {})
             messages.append(MessageOut(**doc))
             
         return messages
+    
+    async def get_message_by_id(self, message_id: str) -> Optional[MessageOut]:
+        """
+        Get a message by ID.
+        
+        Args:
+            message_id: Message ID
+            
+        Returns:
+            Optional[MessageOut]: Message or None
+        """
+        doc = await self.db.messages.find_one({"id": message_id})
+        if doc:
+            doc.setdefault("reply_to", None)
+            doc.setdefault("reactions", {})
+            return MessageOut(**doc)
+        return None
+    
+    async def add_reaction(
+        self,
+        message_id: str,
+        user_id: str,
+        emoji: str
+    ) -> Optional[MessageOut]:
+        """
+        Add a reaction to a message.
+        
+        Args:
+            message_id: Message ID
+            user_id: User who reacted
+            emoji: Reaction emoji
+            
+        Returns:
+            Optional[MessageOut]: Updated message
+        """
+        # Increment reaction count
+        result = await self.db.messages.find_one_and_update(
+            {"id": message_id},
+            {"$inc": {f"reactions.{emoji}": 1}},
+            return_document=True
+        )
+        
+        if result:
+            result.setdefault("reply_to", None)
+            result.setdefault("reactions", {})
+            return MessageOut(**result)
+        return None
     
     async def get_recent_messages_for_context(
         self,

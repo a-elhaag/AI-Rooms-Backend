@@ -97,6 +97,83 @@ async def tool_update_task(
     return result.model_dump()
 
 
+async def tool_update_task_by_title(
+    db: AsyncIOMotorDatabase,
+    room_id: str,
+    task_title: str,
+    status: Optional[str] = None,
+    assignee_id: Optional[str] = None,
+) -> dict:
+    """
+    Update a task by searching for it by title.
+
+    Args:
+        db: Database instance
+        room_id: Room ID
+        task_title: Task title to search for (partial match)
+        status: Optional new status
+        assignee_id: Optional new assignee
+
+    Returns:
+        dict: Updated task information
+    """
+    service = TaskService(db)
+    tasks = await service.get_room_tasks(room_id)
+    
+    # Find task by partial title match
+    task_title_lower = task_title.lower()
+    matched_task = None
+    for task in tasks:
+        if task_title_lower in task.title.lower():
+            matched_task = task
+            break
+    
+    if not matched_task:
+        return {"error": f"Task '{task_title}' not found"}
+    
+    task_data = TaskUpdate()
+    if status:
+        task_data.status = status
+    if assignee_id is not None:
+        task_data.assignee_id = assignee_id
+
+    result = await service.update_task(matched_task.id, task_data)
+    if not result:
+        return {"error": "Failed to update task"}
+
+    return result.model_dump()
+
+
+# Alias for orchestrator
+tool_update_task = tool_update_task_by_title
+
+
+async def tool_react_to_message(
+    db: AsyncIOMotorDatabase,
+    message_id: str,
+    emoji: str,
+) -> dict:
+    """
+    React to a message with an emoji.
+
+    Args:
+        db: Database instance
+        message_id: Message ID
+        emoji: Emoji to react with
+
+    Returns:
+        dict: Success status
+    """
+    from app.services.message_service import MessageService
+    
+    service = MessageService(db)
+    result = await service.add_reaction(message_id, "ai", emoji)
+    
+    if result:
+        return {"success": True, "emoji": emoji, "message_id": message_id}
+    return {"error": "Failed to add reaction"}
+
+
 async def tool_list_tasks(
     db: AsyncIOMotorDatabase, room_id: str, status: Optional[str] = None
 ) -> list[dict]:

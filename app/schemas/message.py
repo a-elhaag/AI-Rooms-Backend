@@ -2,7 +2,7 @@
 Message schemas for API requests and responses.
 """
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -12,6 +12,7 @@ class MessageCreate(BaseModel):
     
     content: str = Field(..., min_length=1)
     sender_type: Literal["user", "ai", "system"] = "user"
+    reply_to: Optional[str] = None  # Message ID being replied to
 
 
 class MessageOut(BaseModel):
@@ -23,6 +24,8 @@ class MessageOut(BaseModel):
     sender_name: Optional[str] = None  # Username or 'AI Assistant'
     sender_type: Literal["user", "ai", "system"] = "user"
     content: str
+    reply_to: Optional[str] = None  # Message ID this is replying to
+    reactions: Optional[Dict[str, int]] = None  # {emoji: count}
     created_at: datetime
     
     class Config:

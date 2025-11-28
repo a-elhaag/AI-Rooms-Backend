@@ -299,6 +299,8 @@ async def websocket_endpoint(
 
             if message_type == "message":
                 content = data.get("content")
+                reply_to = data.get("reply_to")  # Message ID being replied to
+                
                 if content and content.strip():
                     content = content.strip()
                     
@@ -318,7 +320,8 @@ async def websocket_endpoint(
                     message_service = MessageService(db)
                     message_data = MessageCreate(
                         content=content,
-                        sender_type="user"
+                        sender_type="user",
+                        reply_to=reply_to
                     )
 
                     saved_message = await message_service.create_message(
@@ -337,6 +340,8 @@ async def websocket_endpoint(
                             "sender_type": saved_message.sender_type,
                             "sender_id": saved_message.sender_id,
                             "sender_name": saved_message.sender_name,
+                            "reply_to": saved_message.reply_to,
+                            "reactions": saved_message.reactions or {},
                             "created_at": saved_message.created_at.isoformat() if hasattr(saved_message.created_at, 'isoformat') else str(saved_message.created_at)
                         }
                     })
@@ -345,14 +350,23 @@ async def websocket_endpoint(
                     mentions = parse_mentions(content)
                     ai_mentioned = any(m.lower() in ['ai', 'assistant', 'bot'] for m in mentions)
                     
-                    print(f"[AI DEBUG] Message: {content[:50]}... | @mentions: {mentions} | AI mentioned: {ai_mentioned}")
+                    # Check if replying to an AI message
+                    reply_to_ai = False
+                    reply_content = None
+                    if reply_to:
+                        replied_msg = await message_service.get_message_by_id(reply_to)
+                        if replied_msg and replied_msg.sender_type == "ai":
+                            reply_to_ai = True
+                            reply_content = replied_msg.content
+                    
+                    print(f"[AI DEBUG] Message: {content[:50]}... | @mentions: {mentions} | AI mentioned: {ai_mentioned} | Reply to AI: {reply_to_ai}")
                     
                     # Check if AI should respond
                     from app.ai.classifier import ShouldRespondClassifier
                     from app.ai.orchestrator import AIOrchestrator
 
-                    # Force AI response if explicitly mentioned
-                    should_respond = ai_mentioned
+                    # Force AI response if explicitly mentioned or replying to AI
+                    should_respond = ai_mentioned or reply_to_ai
                     
                     if not should_respond:
                         classifier = ShouldRespondClassifier()
@@ -371,7 +385,7 @@ async def websocket_endpoint(
                         print(f"[AI DEBUG] Classifier decision: {should_respond}")
                     else:
                         orchestrator = AIOrchestrator(db)
-                        print(f"[AI DEBUG] AI mentioned directly, will respond")
+                        print(f"[AI DEBUG] AI mentioned directly or replied to, will respond")
                     
                     if should_respond:
                         print(f"[AI DEBUG] Getting AI response for: {content[:50]}...")
@@ -380,16 +394,34 @@ async def websocket_endpoint(
                             room_id=room_id,
                             user_id=user_id,
                             content=content,
-                            message_id=saved_message.id
+                            message_id=saved_message.id,
+                            reply_to_content=reply_content
                         )
                         
                         print(f"[AI DEBUG] AI result: {ai_result}")
+                        
+                        # Broadcast tool execution results (tasks created/updated)
+                        if ai_result and ai_result.get("tools_executed"):
+                            for tool_result in ai_result["tools_executed"]:
+                                if tool_result["type"] in ["task_created", "task_updated"]:
+                                    await manager.broadcast_to_room(room_id, {
+                                        "type": tool_result["type"],
+                                        "task": tool_result["data"]
+                                    })
+                                elif tool_result["type"] == "reaction":
+                                    await manager.broadcast_to_room(room_id, {
+                                        "type": "reaction",
+                                        "message_id": tool_result["message_id"],
+                                        "emoji": tool_result["emoji"],
+                                        "user": "AI Assistant"
+                                    })
                         
                         if ai_result and ai_result.get("content"):
                             # Save AI response to DB
                             ai_message_data = MessageCreate(
                                 content=ai_result["content"],
-                                sender_type="ai"
+                                sender_type="ai",
+                                reply_to=saved_message.id  # AI replies to user's message
                             )
                             
                             ai_message = await message_service.create_message(
@@ -410,6 +442,8 @@ async def websocket_endpoint(
                                     "sender_type": ai_message.sender_type,
                                     "sender_id": "ai_assistant",
                                     "sender_name": "AI Assistant",
+                                    "reply_to": ai_message.reply_to,
+                                    "reactions": {},
                                     "created_at": ai_message.created_at.isoformat() if hasattr(ai_message.created_at, 'isoformat') else str(ai_message.created_at)
                                 }
                             })
@@ -426,6 +460,22 @@ async def websocket_endpoint(
                     "username": user.username,
                     "is_typing": data.get("is_typing", True)
                 })
+            
+            elif message_type == "reaction":
+                # Handle reaction to a message
+                message_id = data.get("message_id")
+                emoji = data.get("emoji")
+                if message_id and emoji:
+                    message_service = MessageService(db)
+                    await message_service.add_reaction(message_id, user_id, emoji)
+                    
+                    # Broadcast reaction to room
+                    await manager.broadcast_to_room(room_id, {
+                        "type": "reaction",
+                        "message_id": message_id,
+                        "emoji": emoji,
+                        "user": user.username
+                    })
             
     except WebSocketDisconnect:
         await manager.disconnect(websocket, room_id)
