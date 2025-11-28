@@ -38,11 +38,25 @@ class MessageService:
         Returns:
             MessageOut: Created message information
         """
+        from bson import ObjectId
+
+        # Fetch username from database
+        username = "AI"
+        if user_id:
+            try:
+                user = await self.db.users.find_one({"_id": ObjectId(user_id)})
+                if user:
+                    username = user.get("username", "Unknown")
+                else:
+                    username = "Unknown"
+            except:
+                username = "Unknown"
+        
         message_doc = {
             "id": str(uuid.uuid4()),
             "room_id": room_id,
             "user_id": user_id or "ai",
-            "username": "AI" if not user_id else "User",
+            "username": username,
             "content": message_data.content,
             "type": message_data.type,
             "created_at": datetime.utcnow()

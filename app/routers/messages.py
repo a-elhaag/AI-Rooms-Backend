@@ -20,7 +20,7 @@ async def get_room_messages(
     limit: int = Query(default=50, ge=1, le=100),
     before: Optional[str] = Query(default=None),
     db: AsyncIOMotorDatabase = Depends(get_database),
-    # TODO: Add current_user dependency
+    current_user_id: str = Depends(get_current_user_id)
 ) -> list[MessageOut]:
     """
     Get messages from a room with pagination.
@@ -30,10 +30,19 @@ async def get_room_messages(
         limit: Maximum number of messages to return
         before: Message ID for cursor-based pagination
         db: Database instance
+        current_user_id: Current user ID from header
         
     Returns:
         list[MessageOut]: List of messages
     """
+    # Verify user is a member of the room
+    room_service = RoomService(db)
+    if not await room_service.is_member(room_id, current_user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this room"
+        )
+    
     message_service = MessageService(db)
     return await message_service.get_room_messages(room_id, limit, before)
 

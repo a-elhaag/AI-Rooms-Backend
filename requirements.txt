@@ -1,6 +1,23 @@
+# Web Framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# Database
+motor==3.7.0
+pymongo==4.10.1
+
+# Data Validation
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# Security
 bcrypt==5.0.0
-greenlet==3.2.4
 passlib==1.7.4
-playwright==1.55.0
-pyee==13.0.0
+python-multipart==0.0.20
+
+# AI/ML
+google-genai==1.0.0
+
+# Utilities
+python-dotenv==1.0.1
 typing_extensions==4.15.0
