@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional
 
 from app.schemas.auth import UserLogin, UserOut, UserRegister
-from app.utils.security import verify_password
+from app.utils.security import verify_password, get_password_hash
 from bson import ObjectId
 from fastapi import HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -44,9 +44,11 @@ class AuthService:
         
         # Create user document
         now = datetime.utcnow()
+        hashed_password = get_password_hash(user_data.password)
+
         user_doc = {
             "username": user_data.username,
-            "password": user_data.password,  # Plain text for POC
+            "password": hashed_password,
             "preferred_language": user_data.preferred_language,
             "created_at": now,
             "updated_at": now,

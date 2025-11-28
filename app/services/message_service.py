@@ -97,9 +97,19 @@ class MessageService:
             
         Returns:
             list[dict]: List of message dictionaries
-            
-        TODO:
-            - Query messages collection
-            - Return raw message data for AI processing
         """
-        pass
+        cursor = self.db.messages.find({"room_id": room_id}).sort("created_at", -1).limit(limit)
+        messages = []
+        async for doc in cursor:
+            # Convert ObjectId to string if present (though this service uses UUID strings for id)
+            if "_id" in doc:
+                doc["_id"] = str(doc["_id"])
+
+            # Format dates
+            if "created_at" in doc and isinstance(doc["created_at"], datetime):
+                doc["created_at"] = doc["created_at"].isoformat()
+
+            messages.append(doc)
+
+        # Return in chronological order (oldest first) for context window
+        return list(reversed(messages))

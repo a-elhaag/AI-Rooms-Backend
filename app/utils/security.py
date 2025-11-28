@@ -1,18 +1,34 @@
 """
-Security utilities - Simplified for POC (no JWT, just basic password check).
+Security utilities - Password hashing.
 """
+from passlib.context import CryptContext
+
+# Create a CryptContext object
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-def verify_password(plain_password: str, stored_password: str) -> bool:
+def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
-    Simple password verification for POC.
-    In production, use proper hashing like bcrypt.
+    Verify a password against a hash.
     
     Args:
         plain_password: Plain text password
-        stored_password: Stored password (plain text in POC)
+        hashed_password: Hashed password
         
     Returns:
         bool: True if password matches
     """
-    return plain_password == stored_password
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+def get_password_hash(password: str) -> str:
+    """
+    Generate a password hash.
+
+    Args:
+        password: Plain text password
+
+    Returns:
+        str: Hashed password
+    """
+    return pwd_context.hash(password)

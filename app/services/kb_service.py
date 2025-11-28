@@ -1,6 +1,8 @@
 """
 Room knowledge base service for managing room KB.
 """
+import uuid
+from datetime import datetime
 from typing import Optional
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -19,6 +21,7 @@ class KBService:
             db: MongoDB database instance
         """
         self.db = db
+        self.collection = db.room_kb
     
     async def get_room_kb(self, room_id: str) -> Optional[KBOut]:
         """
@@ -29,12 +32,20 @@ class KBService:
             
         Returns:
             Optional[KBOut]: Room KB or None
-            
-        TODO:
-            - Query room_kb collection for room_id
-            - Return KB or None
         """
-        pass
+        doc = await self.collection.find_one({"room_id": room_id})
+
+        if not doc:
+            return None
+
+        return KBOut(
+            id=doc["id"],
+            room_id=doc["room_id"],
+            summary=doc.get("summary", ""),
+            key_decisions=doc.get("key_decisions", []),
+            important_links=doc.get("important_links", []),
+            last_updated=doc["updated_at"].isoformat() if isinstance(doc["updated_at"], datetime) else doc["updated_at"]
+        )
     
     async def create_default_kb(self, room_id: str) -> KBOut:
         """
@@ -45,12 +56,34 @@ class KBService:
             
         Returns:
             KBOut: Created KB
-            
-        TODO:
-            - Create room_kb document with empty defaults
-            - Return KB information
         """
-        pass
+        existing = await self.get_room_kb(room_id)
+        if existing:
+            return existing
+
+        now = datetime.utcnow()
+        kb_id = str(uuid.uuid4())
+
+        kb_doc = {
+            "id": kb_id,
+            "room_id": room_id,
+            "summary": "",
+            "key_decisions": [],
+            "important_links": [],
+            "created_at": now,
+            "updated_at": now
+        }
+
+        await self.collection.insert_one(kb_doc)
+
+        return KBOut(
+            id=kb_id,
+            room_id=room_id,
+            summary="",
+            key_decisions=[],
+            important_links=[],
+            last_updated=now.isoformat()
+        )
     
     async def update_kb(self, room_id: str, kb_data: KBUpdate) -> Optional[KBOut]:
         """
@@ -62,14 +95,40 @@ class KBService:
             
         Returns:
             Optional[KBOut]: Updated KB or None
-            
-        TODO:
-            - Find KB by room_id
-            - Update fields
-            - Update last_updated timestamp
-            - Return updated KB
         """
-        pass
+        # Ensure KB exists
+        await self.create_default_kb(room_id)
+
+        update_fields = {"updated_at": datetime.utcnow()}
+
+        if kb_data.summary is not None:
+            update_fields["summary"] = kb_data.summary
+
+        # Note: This replaces the lists. To append, we'd need a different schema or method.
+        # Based on schema, it seems we replace the list.
+        if kb_data.key_decisions is not None:
+            update_fields["key_decisions"] = kb_data.key_decisions
+
+        if kb_data.important_links is not None:
+            update_fields["important_links"] = kb_data.important_links
+
+        result = await self.collection.find_one_and_update(
+            {"room_id": room_id},
+            {"$set": update_fields},
+            return_document=True
+        )
+
+        if not result:
+            return None
+
+        return KBOut(
+            id=result["id"],
+            room_id=result["room_id"],
+            summary=result.get("summary", ""),
+            key_decisions=result.get("key_decisions", []),
+            important_links=result.get("important_links", []),
+            last_updated=result["updated_at"].isoformat() if isinstance(result["updated_at"], datetime) else result["updated_at"]
+        )
     
     async def append_key_decision(self, room_id: str, decision: str) -> Optional[KBOut]:
         """
@@ -81,11 +140,27 @@ class KBService:
             
         Returns:
             Optional[KBOut]: Updated KB or None
-            
-        TODO:
-            - Find KB by room_id
-            - Append decision to key_decisions array
-            - Update last_updated
-            - Return updated KB
         """
-        pass
+        # Ensure KB exists
+        await self.create_default_kb(room_id)
+
+        result = await self.collection.find_one_and_update(
+            {"room_id": room_id},
+            {
+                "$push": {"key_decisions": decision},
+                "$set": {"updated_at": datetime.utcnow()}
+            },
+            return_document=True
+        )
+
+        if not result:
+            return None
+
+        return KBOut(
+            id=result["id"],
+            room_id=result["room_id"],
+            summary=result.get("summary", ""),
+            key_decisions=result.get("key_decisions", []),
+            important_links=result.get("important_links", []),
+            last_updated=result["updated_at"].isoformat() if isinstance(result["updated_at"], datetime) else result["updated_at"]
+        )

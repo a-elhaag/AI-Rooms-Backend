@@ -10,15 +10,16 @@ These tools provide concrete actions the AI can take:
 - KB updates
 """
 
-from datetime import datetime
 from typing import Any, Optional
 
-from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.ai.gemini_client import gemini_client
-from app.models.message import Message
-from app.models.task import Task
+from app.services.task_service import TaskService
+from app.services.kb_service import KBService
+from app.services.message_service import MessageService
+from app.schemas.task import TaskCreate, TaskUpdate
+from app.schemas.kb import KBUpdate
 
 # Task Management Tools
 
@@ -43,43 +44,24 @@ async def tool_create_task(
     Returns:
         dict: Created task information
     """
-    task_data = {
-        "room_id": ObjectId(room_id),
-        "title": title,
-        "status": "todo",
-        "created_at": datetime.utcnow(),
-    }
+    service = TaskService(db)
 
-    if assignee_id:
-        if assignee_id == "ai":
-            task_data["assignee_id"] = "ai"
-        else:
-            try:
-                task_data["assignee_id"] = ObjectId(assignee_id)
-            except:
-                pass  # Ignore invalid object ids for now
-
+    # Parse due_date
+    parsed_date = None
     if due_date:
         try:
-            task_data["due_date"] = datetime.fromisoformat(
-                due_date.replace("Z", "+00:00")
-            )
-        except ValueError:
+            parsed_date = datetime.fromisoformat(due_date.replace("Z", "+00:00"))
+        except:
             pass
 
-    # Create task model to validate (optional but good practice)
-    # task = Task(**task_data) # Skipping full validation for simplicity in tool
+    task_data = TaskCreate(
+        title=title,
+        assignee_id=assignee_id,
+        due_date=parsed_date
+    )
 
-    result = await db["tasks"].insert_one(task_data)
-    task_data["_id"] = str(result.inserted_id)
-    task_data["room_id"] = str(task_data["room_id"])
-    if "assignee_id" in task_data and isinstance(task_data["assignee_id"], ObjectId):
-        task_data["assignee_id"] = str(task_data["assignee_id"])
-    task_data["created_at"] = task_data["created_at"].isoformat()
-    if "due_date" in task_data and isinstance(task_data["due_date"], datetime):
-        task_data["due_date"] = task_data["due_date"].isoformat()
-
-    return task_data
+    result = await service.create_task(room_id, task_data)
+    return result.model_dump()
 
 
 async def tool_update_task(
@@ -100,34 +82,19 @@ async def tool_update_task(
     Returns:
         dict: Updated task information
     """
-    update_data = {}
+    service = TaskService(db)
+
+    task_data = TaskUpdate()
     if status:
-        update_data["status"] = status
+        task_data.status = status
     if assignee_id:
-        if assignee_id == "ai":
-            update_data["assignee_id"] = "ai"
-        else:
-            try:
-                update_data["assignee_id"] = ObjectId(assignee_id)
-            except:
-                pass
+        task_data.assignee_id = assignee_id
 
-    if not update_data:
-        return {"error": "No fields to update"}
-
-    try:
-        result = await db["tasks"].find_one_and_update(
-            {"_id": ObjectId(task_id)}, {"$set": update_data}, return_document=True
-        )
-        if result:
-            result["_id"] = str(result["_id"])
-            result["room_id"] = str(result["room_id"])
-            if "assignee_id" in result and isinstance(result["assignee_id"], ObjectId):
-                result["assignee_id"] = str(result["assignee_id"])
-            return result
+    result = await service.update_task(task_id, task_data)
+    if not result:
         return {"error": "Task not found"}
-    except Exception as e:
-        return {"error": str(e)}
+
+    return result.model_dump()
 
 
 async def tool_list_tasks(
@@ -144,23 +111,15 @@ async def tool_list_tasks(
     Returns:
         list[dict]: List of tasks
     """
-    query = {"room_id": ObjectId(room_id)}
+    service = TaskService(db)
+    tasks = await service.get_room_tasks(room_id)
+
+    results = [t.model_dump() for t in tasks]
+
     if status:
-        query["status"] = status
+        results = [t for t in results if t["status"] == status]
 
-    tasks = []
-    cursor = db["tasks"].find(query).sort("created_at", -1).limit(20)
-    async for task in cursor:
-        task["_id"] = str(task["_id"])
-        task["room_id"] = str(task["room_id"])
-        if "assignee_id" in task and isinstance(task["assignee_id"], ObjectId):
-            task["assignee_id"] = str(task["assignee_id"])
-        task["created_at"] = task["created_at"].isoformat()
-        if "due_date" in task and isinstance(task["due_date"], datetime):
-            task["due_date"] = task["due_date"].isoformat()
-        tasks.append(task)
-
-    return tasks
+    return results
 
 
 # Communication Tools
@@ -174,33 +133,16 @@ async def tool_translate_text(text: str, target_language: str) -> str:
 async def tool_summarize_messages(
     db: AsyncIOMotorDatabase, room_id: str, last_n: int = 20
 ) -> str:
-
-    # Fetch recent messages from DB
-    messages = []
-    try:
-        cursor = (
-            db["messages"]
-            .find({"room_id": ObjectId(room_id)})
-            .sort("created_at", -1)
-            .limit(last_n)
-        )
-        async for msg in cursor:
-            messages.append(msg)
-    except Exception:
-        pass  # Handle invalid room_id gracefully
+    service = MessageService(db)
+    messages = await service.get_recent_messages_for_context(room_id, limit=last_n)
 
     if not messages:
         return "No messages found to summarize."
 
-    # Reverse to chronological order
-    messages.reverse()
-
     # Format for LLM
     message_text = ""
     for msg in messages:
-        sender = (
-            "AI" if msg.get("user_id") == "ai" else "User"
-        )  # In real app, fetch username
+        sender = msg.get("username", "Unknown")
         content = msg.get("content", "")
         message_text += f"{sender}: {content}\n"
 
@@ -231,41 +173,41 @@ async def tool_update_room_kb(
     Returns:
         dict: Updated KB information
     """
-    # Fetch the existing KB for the room
-    kb = await db["knowledge_bases"].find_one({"room_id": ObjectId(room_id)})
+    service = KBService(db)
 
-    if not kb:
-        # If no KB exists, create a new one
-        kb = {
-            "room_id": ObjectId(room_id),
-            "summary": summary or "",
-            "key_decisions": [key_decision] if key_decision else [],
-            "important_links": [important_link] if important_link else [],
-            "updated_at": datetime.utcnow(),
-        }
-        await db["knowledge_bases"].insert_one(kb)
-    else:
-        # Update the existing KB
-        update_fields = {"updated_at": datetime.utcnow()}
+    # If adding single items, we need to fetch current state first or assume the service handles append?
+    # The KBUpdate schema replaces lists. The service has 'append_key_decision'.
+    # Let's use append for decisions if provided alone.
 
-        if summary:
-            update_fields["summary"] = summary
-        if key_decision:
-            update_fields.setdefault("key_decisions", kb.get("key_decisions", []))
-            update_fields["key_decisions"].append(key_decision)
-        if important_link:
-            update_fields.setdefault("important_links", kb.get("important_links", []))
-            update_fields["important_links"].append(important_link)
+    if key_decision and not summary and not important_link:
+        result = await service.append_key_decision(room_id, key_decision)
+        return result.model_dump() if result else {"error": "Failed to update KB"}
 
-        await db["knowledge_bases"].update_one(
-            {"room_id": ObjectId(room_id)}, {"$set": update_fields}
-        )
+    # Otherwise general update
+    # We need to fetch current first to append to lists if we want to preserve them,
+    # but the tool interface suggests 'add this', so appending is safer for links/decisions.
 
-    # Fetch and return the updated KB
-    updated_kb = await db["knowledge_bases"].find_one({"room_id": ObjectId(room_id)})
-    updated_kb["room_id"] = str(updated_kb["room_id"])
-    updated_kb["updated_at"] = updated_kb["updated_at"].isoformat()
-    return updated_kb
+    current_kb = await service.get_room_kb(room_id)
+    if not current_kb:
+        # Create default
+        current_kb = await service.create_default_kb(room_id)
+
+    kb_update = KBUpdate()
+    if summary:
+        kb_update.summary = summary
+
+    if key_decision:
+        decisions = current_kb.key_decisions or []
+        decisions.append(key_decision)
+        kb_update.key_decisions = decisions
+
+    if important_link:
+        links = current_kb.important_links or []
+        links.append(important_link)
+        kb_update.important_links = links
+
+    result = await service.update_kb(room_id, kb_update)
+    return result.model_dump() if result else {"error": "Failed to update KB"}
 
 
 # Search and Information Tools
@@ -303,10 +245,6 @@ async def tool_generate_image(prompt: str, style: Optional[str] = None) -> str:
 
     Returns:
         str: Image URL or base64
-
-    TODO:
-        - Integrate with image generation API (Imagen, DALL-E, etc.)
-        - Return image URL
     """
     pass
 
@@ -342,10 +280,7 @@ async def tool_rewrite_in_user_style(
 
     Returns:
         str: Rewritten text
-
-    TODO:
-        - Get user profile with style notes and samples
-        - Use LLM with style context to rewrite
-        - Return rewritten text
     """
-    pass
+    # TODO: Fetch user profile/style from ProfileService
+    prompt = f"Rewrite the following text to match the user's style:\n\n{text}"
+    return await gemini_client.generate_response(prompt)
