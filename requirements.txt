@@ -1,22 +1,6 @@
-# AI Rooms Backend - Python Dependencies
-
-# FastAPI and server
-fastapi==0.115.0
-uvicorn[standard]==0.31.0
-python-multipart==0.0.9
-
-# Database
-motor==3.6.0
-pymongo==4.9.0
-
-# Pydantic
-pydantic==2.9.2
-pydantic-settings==2.6.0
-
-# LangChain and AI (for future use)
-langchain==0.3.7
-google-genai==0.3.0
-
-# Utilities
-python-dotenv==1.0.1
-requests>=2.31.0
+bcrypt==5.0.0
+greenlet==3.2.4
+passlib==1.7.4
+playwright==1.55.0
+pyee==13.0.0
+typing_extensions==4.15.0
