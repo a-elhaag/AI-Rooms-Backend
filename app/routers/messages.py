@@ -7,6 +7,7 @@ from app.db import get_database
 from app.schemas.message import MessageCreate, MessageOut
 from app.services.message_service import MessageService
 from app.services.room_service import RoomService
+from app.utils.security import get_current_user_id
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -42,7 +43,7 @@ async def create_message(
     room_id: str,
     message_data: MessageCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
-    # TODO: Add current_user dependency
+    current_user_id: str = Depends(get_current_user_id)
 ) -> MessageOut:
     """
     Create a new message in a room.
@@ -53,12 +54,11 @@ async def create_message(
         room_id: Room ID
         message_data: Message content and type
         db: Database instance
+        current_user_id: Current user ID from header
         
     Returns:
         MessageOut: Created message information
     """
-    # Temporary hardcoded user for POC
-    current_user_id = "demo_user_123"
     
     message_service = MessageService(db)
     return await message_service.create_message(room_id, message_data, current_user_id)

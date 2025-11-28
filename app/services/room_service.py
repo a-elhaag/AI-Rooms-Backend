@@ -85,3 +85,99 @@ class RoomService:
             rooms.append(RoomOut(**doc))
             
         return rooms
+    
+    async def join_room(self, join_code: str, user_id: str) -> Optional[RoomOut]:
+        """
+        Join a room using a join code.
+        
+        Args:
+            join_code: Room join code
+            user_id: User ID
+            
+        Returns:
+            Optional[RoomOut]: Room information if found and joined
+        """
+        # Find room by join code
+        room = await self.db.rooms.find_one({"join_code": join_code})
+        if not room:
+            return None
+        
+        # Check if already a member
+        existing = await self.db.room_members.find_one({
+            "room_id": room["id"],
+            "user_id": user_id
+        })
+        if existing:
+            # Already a member, just return room
+            return RoomOut(**room)
+        
+        # Add as member
+        member_doc = {
+            "room_id": room["id"],
+            "user_id": user_id,
+            "role": "member",
+            "joined_at": datetime.utcnow()
+        }
+        await self.db.room_members.insert_one(member_doc)
+        
+        # Increment member count
+        await self.db.rooms.update_one(
+            {"id": room["id"]},
+            {"$inc": {"member_count": 1}}
+        )
+        
+        # Fetch updated room
+        updated_room = await self.db.rooms.find_one({"id": room["id"]})
+        return RoomOut(**updated_room) if updated_room else RoomOut(**room)
+    
+    async def get_room_members(self, room_id: str) -> List[RoomMemberOut]:
+        """
+        Get all members of a room.
+        
+        Args:
+            room_id: Room ID
+            
+        Returns:
+            List[RoomMemberOut]: List of room members with user details
+        """
+        from bson import ObjectId
+        
+        # Get all members for the room
+        members_cursor = self.db.room_members.find({"room_id": room_id})
+        members = []
+        
+        async for member_doc in members_cursor:
+            # Fetch user details
+            try:
+                user = await self.db.users.find_one({"_id": ObjectId(member_doc["user_id"])})
+                username = user.get("username", "Unknown") if user else "Unknown"
+            except:
+                username = "Unknown"
+            
+            members.append(RoomMemberOut(
+                id=str(member_doc.get("_id")),
+                room_id=member_doc["room_id"],
+                user_id=member_doc["user_id"],
+                username=username,
+                role=member_doc["role"],
+                joined_at=member_doc["joined_at"].isoformat() if isinstance(member_doc["joined_at"], datetime) else member_doc["joined_at"]
+            ))
+        
+        return members
+    
+    async def is_member(self, room_id: str, user_id: str) -> bool:
+        """
+        Check if a user is a member of a room.
+        
+        Args:
+            room_id: Room ID
+            user_id: User ID
+            
+        Returns:
+            bool: True if user is a member
+        """
+        member = await self.db.room_members.find_one({
+            "room_id": room_id,
+            "user_id": user_id
+        })
+        return member is not None

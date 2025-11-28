@@ -1,9 +1,70 @@
 {
   "info": {
     "name": "AI Rooms Backend",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    "description": "Complete request suite for the FastAPI backend (POC mode). Update collection variables after successful requests to chain flows.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": {
+      "major": 1,
+      "minor": 0,
+      "patch": 0
+    }
   },
   "item": [
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Health endpoint returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "API Root",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Root endpoint returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
     {
       "name": "Auth",
       "item": [
@@ -11,14 +72,12 @@
           "name": "Register",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"username\": \"testuser\",\n    \"password\": \"password123\",\n    \"preferred_language\": \"en\"\n}",
+              "raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"password123\",\n  \"preferred_language\": \"en\"\n}",
               "options": {
-                "raw": {
-                  "language": "json"
-                }
+                "raw": { "language": "json" }
               }
             },
             "url": {
@@ -27,20 +86,34 @@
               "path": ["auth", "register"]
             }
           },
-          "response": []
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Registration returns 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "if (body?.id) {",
+                  "    pm.collectionVariables.set('user_id', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Login",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"username\": \"testuser\",\n    \"password\": \"password123\"\n}",
+              "raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"password123\"\n}",
               "options": {
-                "raw": {
-                  "language": "json"
-                }
+                "raw": { "language": "json" }
               }
             },
             "url": {
@@ -49,20 +122,48 @@
               "path": ["auth", "login"]
             }
           },
-          "response": []
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Login returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "if (body?.id) {",
+                  "    pm.collectionVariables.set('user_id', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
-          "name": "Get Current User",
+          "name": "Current User",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [{ "key": "X-User-Id", "value": "{{user_id}}" }],
             "url": {
               "raw": "{{base_url}}/auth/me",
               "host": ["{{base_url}}"],
               "path": ["auth", "me"]
             }
           },
-          "response": []
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Current user returns 200 when header set\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -70,30 +171,43 @@
       "name": "Rooms",
       "item": [
         {
-          "name": "Get User Rooms",
+          "name": "List Rooms",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [{ "key": "X-User-Id", "value": "{{user_id}}" }],
             "url": {
               "raw": "{{base_url}}/rooms",
               "host": ["{{base_url}}"],
               "path": ["rooms"]
             }
           },
-          "response": []
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Rooms list returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Create Room",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-User-Id", "value": "{{user_id}}" }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"name\": \"Project Alpha\"\n}",
+              "raw": "{\n  \"name\": \"Project Alpha\"\n}",
               "options": {
-                "raw": {
-                  "language": "json"
-                }
+                "raw": { "language": "json" }
               }
             },
             "url": {
@@ -102,20 +216,40 @@
               "path": ["rooms"]
             }
           },
-          "response": []
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Room creation returns 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "if (body?.id) {",
+                  "    pm.collectionVariables.set('room_id', body.id);",
+                  "}",
+                  "if (body?.join_code) {",
+                  "    pm.collectionVariables.set('room_join_code', body.join_code);",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Join Room",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-User-Id", "value": "{{user_id}}" }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"join_code\": \"ABC12345\"\n}",
+              "raw": "{\n  \"join_code\": \"{{room_join_code}}\"\n}",
               "options": {
-                "raw": {
-                  "language": "json"
-                }
+                "raw": { "language": "json" }
               }
             },
             "url": {
@@ -123,83 +257,19 @@
               "host": ["{{base_url}}"],
               "path": ["rooms", "join"]
             }
-          },
-          "response": []
+          }
         },
         {
-          "name": "Get Room Members",
+          "name": "Room Members",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [{ "key": "X-User-Id", "value": "{{user_id}}" }],
             "url": {
               "raw": "{{base_url}}/rooms/{{room_id}}/members",
               "host": ["{{base_url}}"],
               "path": ["rooms", "{{room_id}}", "members"]
             }
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "Tasks",
-      "item": [
-        {
-          "name": "Get Room Tasks",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/rooms/{{room_id}}/tasks",
-              "host": ["{{base_url}}"],
-              "path": ["rooms", "{{room_id}}", "tasks"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Create Task",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"title\": \"Implement Login\",\n    \"assignee_id\": \"ai\",\n    \"due_date\": \"2023-12-31T23:59:59Z\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/rooms/{{room_id}}/tasks",
-              "host": ["{{base_url}}"],
-              "path": ["rooms", "{{room_id}}", "tasks"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Update Task",
-          "request": {
-            "method": "PATCH",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"status\": \"in_progress\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/tasks/{{task_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["tasks", "{{task_id}}"]
-            }
-          },
-          "response": []
+          }
         }
       ]
     },
@@ -207,36 +277,38 @@
       "name": "Messages",
       "item": [
         {
-          "name": "Get Room Messages",
+          "name": "List Messages",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [{ "key": "X-User-Id", "value": "{{user_id}}" }],
             "url": {
-              "raw": "{{base_url}}/rooms/{{room_id}}/messages?limit=20",
+              "raw": "{{base_url}}/rooms/{{room_id}}/messages?limit={{message_limit}}&before={{message_before}}",
               "host": ["{{base_url}}"],
               "path": ["rooms", "{{room_id}}", "messages"],
               "query": [
+                { "key": "limit", "value": "{{message_limit}}" },
                 {
-                  "key": "limit",
-                  "value": "20"
+                  "key": "before",
+                  "value": "{{message_before}}",
+                  "disabled": true
                 }
               ]
             }
-          },
-          "response": []
+          }
         },
         {
-          "name": "Create Message",
+          "name": "Send Message",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-User-Id", "value": "{{user_id}}" }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"content\": \"Hello everyone!\",\n    \"type\": \"text\"\n}",
+              "raw": "{\n  \"content\": \"Hello team!\",\n  \"type\": \"text\"\n}",
               "options": {
-                "raw": {
-                  "language": "json"
-                }
+                "raw": { "language": "json" }
               }
             },
             "url": {
@@ -245,7 +317,101 @@
               "path": ["rooms", "{{room_id}}", "messages"]
             }
           },
-          "response": []
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Message creation returns 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "if (body?.id) {",
+                  "    pm.collectionVariables.set('message_id', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Tasks",
+      "item": [
+        {
+          "name": "List Tasks",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-User-Id", "value": "{{user_id}}" }],
+            "url": {
+              "raw": "{{base_url}}/rooms/{{room_id}}/tasks",
+              "host": ["{{base_url}}"],
+              "path": ["rooms", "{{room_id}}", "tasks"]
+            }
+          }
+        },
+        {
+          "name": "Create Task",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-User-Id", "value": "{{user_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Draft project brief\",\n  \"assignee_id\": \"ai\",\n  \"due_date\": \"2025-01-01T12:00:00Z\"\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/rooms/{{room_id}}/tasks",
+              "host": ["{{base_url}}"],
+              "path": ["rooms", "{{room_id}}", "tasks"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Task creation returns 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "if (body?.id) {",
+                  "    pm.collectionVariables.set('task_id', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Task",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-User-Id", "value": "{{user_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in_progress\",\n  \"assignee_id\": \"{{user_id}}\"\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/tasks/{{task_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["tasks", "{{task_id}}"]
+            }
+          }
         }
       ]
     },
@@ -253,39 +419,15 @@
       "name": "AI",
       "item": [
         {
-          "name": "Translate",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"text\": \"Hello world\",\n    \"target_language\": \"es\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/ai/translate",
-              "host": ["{{base_url}}"],
-              "path": ["ai", "translate"]
-            }
-          },
-          "response": []
-        },
-        {
           "name": "Rephrase",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"text\": \"I want to tell you that the project is done.\",\n    \"style\": \"professional\"\n}",
+              "raw": "{\n  \"text\": \"I want to tell you that the project is done.\",\n  \"style\": \"professional\"\n}",
               "options": {
-                "raw": {
-                  "language": "json"
-                }
+                "raw": { "language": "json" }
               }
             },
             "url": {
@@ -293,21 +435,37 @@
               "host": ["{{base_url}}"],
               "path": ["ai", "rephrase"]
             }
-          },
-          "response": []
+          }
+        },
+        {
+          "name": "Translate",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Hello world\",\n  \"target_language\": \"es\"\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/ai/translate",
+              "host": ["{{base_url}}"],
+              "path": ["ai", "translate"]
+            }
+          }
         },
         {
           "name": "Summarize Room",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"room_id\": \"{{room_id}}\",\n    \"last_n_messages\": 20\n}",
+              "raw": "{\n  \"room_id\": \"{{room_id}}\",\n  \"last_n_messages\": 20\n}",
               "options": {
-                "raw": {
-                  "language": "json"
-                }
+                "raw": { "language": "json" }
               }
             },
             "url": {
@@ -315,21 +473,18 @@
               "host": ["{{base_url}}"],
               "path": ["ai", "summarize-room"]
             }
-          },
-          "response": []
+          }
         },
         {
           "name": "Update Knowledge Base",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"room_id\": \"{{room_id}}\",\n  \"summary\": \"Updated summary of the room.\",\n  \"key_decision\": \"Key decision made during the meeting.\",\n  \"important_link\": \"https://example.com/important-link\"\n}",
+              "raw": "{\n  \"room_id\": \"{{room_id}}\",\n  \"summary\": \"Updated summary of the room.\",\n  \"key_decision\": \"Key decision documented by AI.\",\n  \"important_link\": \"https://example.com/spec\"\n}",
               "options": {
-                "raw": {
-                  "language": "json"
-                }
+                "raw": { "language": "json" }
               }
             },
             "url": {
@@ -337,27 +492,19 @@
               "host": ["{{base_url}}"],
               "path": ["ai", "update-kb"]
             }
-          },
-          "response": []
+          }
         }
       ]
     }
   ],
   "variable": [
-    {
-      "key": "base_url",
-      "value": "http://localhost:8000",
-      "type": "string"
-    },
-    {
-      "key": "room_id",
-      "value": "YOUR_ROOM_ID_HERE",
-      "type": "string"
-    },
-    {
-      "key": "task_id",
-      "value": "YOUR_TASK_ID_HERE",
-      "type": "string"
-    }
+    { "key": "base_url", "value": "http://localhost:8000", "type": "string" },
+    { "key": "user_id", "value": "demo_user_123", "type": "string" },
+    { "key": "room_id", "value": "", "type": "string" },
+    { "key": "room_join_code", "value": "", "type": "string" },
+    { "key": "task_id", "value": "", "type": "string" },
+    { "key": "message_id", "value": "", "type": "string" },
+    { "key": "message_limit", "value": "20", "type": "string" },
+    { "key": "message_before", "value": "", "type": "string" }
   ]
 }

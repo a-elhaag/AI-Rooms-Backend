@@ -4,6 +4,7 @@ Rooms router for room creation, joining, and member management.
 from app.db import get_database
 from app.schemas.room import RoomCreate, RoomJoin, RoomMemberOut, RoomOut
 from app.services.room_service import RoomService
+from app.utils.security import get_current_user_id
 from fastapi import APIRouter, Depends, HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -13,19 +14,18 @@ router = APIRouter(prefix="/rooms", tags=["Rooms"])
 @router.get("", response_model=list[RoomOut])
 async def get_user_rooms(
     db: AsyncIOMotorDatabase = Depends(get_database),
-    # TODO: Add current_user dependency
+    current_user_id: str = Depends(get_current_user_id)
 ) -> list[RoomOut]:
     """
     Get all rooms that the current user is a member of.
     
     Args:
         db: Database instance
+        current_user_id: Current user ID from header
         
     Returns:
         list[RoomOut]: List of rooms
     """
-    # Temporary hardcoded user for POC
-    current_user_id = "demo_user_123"
     
     room_service = RoomService(db)
     return await room_service.get_user_rooms(current_user_id)
@@ -35,7 +35,7 @@ async def get_user_rooms(
 async def create_room(
     room_data: RoomCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
-    # TODO: Add current_user dependency
+    current_user_id: str = Depends(get_current_user_id)
 ) -> RoomOut:
     """
     Create a new room with auto-generated join code.
@@ -43,47 +43,21 @@ async def create_room(
     Args:
         room_data: Room creation data (name)
         db: Database instance
+        current_user_id: Current user ID from header
         
     Returns:
         RoomOut: Created room information
     """
-    # Temporary hardcoded user for POC
-    current_user_id = "demo_user_123"
     
     room_service = RoomService(db)
     return await room_service.create_room(room_data, current_user_id)
-
-
-@router.post("", response_model=RoomOut, status_code=status.HTTP_201_CREATED)
-async def create_room(
-    room_data: RoomCreate,
-    db: AsyncIOMotorDatabase = Depends(get_database),
-    # TODO: Add current_user dependency
-) -> RoomOut:
-    """
-    Create a new room with auto-generated join code.
-    
-    Args:
-        room_data: Room creation data (name)
-        db: Database instance
-        
-    Returns:
-        RoomOut: Created room information
-        
-    TODO:
-        - Get user_id from current_user dependency
-        - Initialize RoomService
-        - Call create_room method
-        - Return room information
-    """
-    pass
 
 
 @router.post("/join", response_model=RoomOut)
 async def join_room(
     join_data: RoomJoin,
     db: AsyncIOMotorDatabase = Depends(get_database),
-    # TODO: Add current_user dependency
+    current_user_id: str = Depends(get_current_user_id)
 ) -> RoomOut:
     """
     Join a room using a join code.
@@ -91,26 +65,29 @@ async def join_room(
     Args:
         join_data: Join code
         db: Database instance
+        current_user_id: Current user ID from header
         
     Returns:
         RoomOut: Joined room information
-        
-    TODO:
-        - Get user_id from current_user dependency
-        - Initialize RoomService
-        - Call join_room method
-        - Handle invalid join code error
-        - Handle already member error
-        - Return room information
     """
-    pass
+    
+    room_service = RoomService(db)
+    room = await room_service.join_room(join_data.join_code, current_user_id)
+    
+    if not room:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Room not found with that join code"
+        )
+    
+    return room
 
 
 @router.get("/{room_id}/members", response_model=list[RoomMemberOut])
 async def get_room_members(
     room_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
-    # TODO: Add current_user dependency
+    current_user_id: str = Depends(get_current_user_id)
 ) -> list[RoomMemberOut]:
     """
     Get all members of a room.
@@ -118,15 +95,19 @@ async def get_room_members(
     Args:
         room_id: Room ID
         db: Database instance
+        current_user_id: Current user ID from header
         
     Returns:
         list[RoomMemberOut]: List of room members
-        
-    TODO:
-        - Get user_id from current_user dependency
-        - Initialize RoomService
-        - Verify user is a member of the room
-        - Call get_room_members method
-        - Return list of members
     """
-    pass
+    
+    room_service = RoomService(db)
+    
+    # Verify user is a member
+    if not await room_service.is_member(room_id, current_user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this room"
+        )
+    
+    return await room_service.get_room_members(room_id)

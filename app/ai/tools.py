@@ -10,6 +10,7 @@ These tools provide concrete actions the AI can take:
 - KB updates
 """
 
+from datetime import datetime
 from typing import Any, Optional
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -245,8 +246,11 @@ async def tool_generate_image(prompt: str, style: Optional[str] = None) -> str:
 
     Returns:
         str: Image URL or base64
+        
+    Raises:
+        NotImplementedError: This feature is not yet implemented
     """
-    pass
+    raise NotImplementedError("Image generation is not yet implemented")
 
 
 # Style and Rewriting Tools

@@ -2,6 +2,7 @@
 AI router for direct AI operations (rewrite, translate, summarize, etc.).
 """
 
+from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends
@@ -176,4 +177,8 @@ async def debug_ai(
     Note:
         - Use this endpoint for internal debugging during development.
     """
-    pass
+    return {
+        "status": "debug_endpoint_placeholder",
+        "message": "AI debug functionality not yet implemented",
+        "timestamp": datetime.utcnow().isoformat()
+    }
