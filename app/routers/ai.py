@@ -6,7 +6,9 @@ from datetime import datetime
 from typing import Optional
 
 from app.db import get_database
-from fastapi import APIRouter, Depends
+from app.services.room_service import RoomService
+from app.utils.security import get_current_user_id
+from fastapi import APIRouter, Depends, HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, Field
 
@@ -65,6 +67,7 @@ from app.models.kb import KnowledgeBaseResponse
 async def rephrase_text(
     request: RephraseRequest,
     db: AsyncIOMotorDatabase = Depends(get_database),
+    current_user_id: str = Depends(get_current_user_id)
 ) -> RephraseResponse:
     """
     Rephrase text in a specific style.
@@ -84,6 +87,7 @@ async def rephrase_text(
 async def translate_text(
     request: TranslateRequest,
     db: AsyncIOMotorDatabase = Depends(get_database),
+    current_user_id: str = Depends(get_current_user_id)
 ) -> TranslateResponse:
     """
     Translate text to target language.
@@ -107,6 +111,7 @@ async def translate_text(
 async def summarize_room(
     request: SummarizeRequest,
     db: AsyncIOMotorDatabase = Depends(get_database),
+    current_user_id: str = Depends(get_current_user_id)
 ) -> SummarizeResponse:
     """
     Summarize recent messages in a room.
@@ -114,10 +119,19 @@ async def summarize_room(
     Args:
         request: Room ID and message count
         db: Database instance
+        current_user_id: Current user ID from header
 
     Returns:
         SummarizeResponse: Room summary
     """
+    # Verify user is a member of the room
+    room_service = RoomService(db)
+    if not await room_service.is_member(request.room_id, current_user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this room"
+        )
+    
     summary = await tool_summarize_messages(
         db, request.room_id, request.last_n_messages
     )
@@ -138,6 +152,7 @@ class UpdateKBRequest(BaseModel):
 async def update_kb(
     request: UpdateKBRequest,
     db: AsyncIOMotorDatabase = Depends(get_database),
+    current_user_id: str = Depends(get_current_user_id)
 ) -> KnowledgeBaseResponse:
     """
     Update the Knowledge Base for a room.
@@ -145,10 +160,19 @@ async def update_kb(
     Args:
         request: UpdateKBRequest containing room_id and optional fields to update
         db: Database instance
+        current_user_id: Current user ID from header
 
     Returns:
         KnowledgeBaseResponse: Updated Knowledge Base
     """
+    # Verify user is a member of the room
+    room_service = RoomService(db)
+    if not await room_service.is_member(request.room_id, current_user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this room"
+        )
+    
     updated_kb = await tool_update_room_kb(
         db,
         request.room_id,
@@ -159,9 +183,77 @@ async def update_kb(
     return KnowledgeBaseResponse(**updated_kb)
 
 
+class ChatRequest(BaseModel):
+    """Request schema for AI chat."""
+    
+    room_id: str
+    message: str = Field(..., min_length=1)
+
+
+class ChatResponse(BaseModel):
+    """Response schema for AI chat."""
+    
+    content: str
+    action: str = "message"  # message, task_created, etc.
+
+
+@router.post("/chat", response_model=ChatResponse)
+async def chat_with_ai(
+    request: ChatRequest,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    current_user_id: str = Depends(get_current_user_id)
+) -> ChatResponse:
+    """
+    Chat with AI assistant. AI can automatically detect when to:
+    - Reply with information
+    - Create tasks
+    - Search the web
+    - Translate text
+    - Summarize conversations
+    
+    Args:
+        request: Chat request with room_id and message
+        db: Database instance
+        current_user_id: Current user ID from header
+    
+    Returns:
+        ChatResponse: AI response
+    """
+    from app.ai.orchestrator import AIOrchestrator
+
+    # Verify user is a member of the room
+    room_service = RoomService(db)
+    if not await room_service.is_member(request.room_id, current_user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this room"
+        )
+    
+    # Handle with AI orchestrator
+    orchestrator = AIOrchestrator(db)
+    result = await orchestrator.handle_message(
+        room_id=request.room_id,
+        user_id=current_user_id,
+        content=request.message,
+        message_id=""  # Will be set if called from WebSocket
+    )
+    
+    if not result:
+        return ChatResponse(
+            content="I'm not configured yet. Please set the GOOGLE_API_KEY.",
+            action="message"
+        )
+    
+    return ChatResponse(
+        content=result.get("content", "I'm thinking..."),
+        action=result.get("action", "message")
+    )
+
+
 @router.post("/debug")
 async def debug_ai(
     db: AsyncIOMotorDatabase = Depends(get_database),
+    current_user_id: str = Depends(get_current_user_id)
 ) -> dict:
     """
     Debug endpoint for AI agent decisions.

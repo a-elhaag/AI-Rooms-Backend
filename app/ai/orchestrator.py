@@ -4,17 +4,12 @@ AI Orchestrator for managing agent decisions and workflow.
 
 from typing import Any, Optional
 
+from app.ai.gemini_client import gemini_client
+from app.ai.tools import (tool_create_task, tool_list_tasks,
+                          tool_summarize_messages, tool_translate_text,
+                          tool_web_search)
 from google.genai import types
 from motor.motor_asyncio import AsyncIOMotorDatabase
-
-from app.ai.gemini_client import gemini_client
-from app.ai.tools import (
-    tool_create_task,
-    tool_list_tasks,
-    tool_summarize_messages,
-    tool_translate_text,
-    tool_web_search,
-)
 
 
 class AIOrchestrator:
@@ -123,21 +118,61 @@ class AIOrchestrator:
         if not gemini_client.is_configured():
             return None
 
-        # 1. Prepare context (history)
-        # NOTE: Placeholder history - integrate DB fetching in future
+        # 1. Gather room context
+        context = await self.gather_room_context(room_id)
+        
+        # 2. Build conversation history from recent messages
         history = []
+        recent_messages = context.get('recent_messages', [])
+        for msg in recent_messages[-10:]:  # Last 10 messages
+            # Parse "name: content" format
+            if ': ' in msg:
+                name, text = msg.split(': ', 1)
+                role = 'model' if name.lower() in ['ai', 'assistant', 'bot'] else 'user'
+                history.append({
+                    'role': role,
+                    'parts': [text]
+                })
+        
+        # 3. Build enhanced system instruction with context
+        system_parts = [
+            "You are a helpful AI assistant in a group chat room.",
+            f"Room: {context.get('room_name', 'AI Room')}",
+        ]
+        
+        if context.get('goals'):
+            goals_text = ", ".join([g['title'] for g in context['goals'][:3]])
+            system_parts.append(f"Room goals: {goals_text}")
+        
+        if context.get('active_tasks'):
+            tasks_text = f"{len(context['active_tasks'])} active tasks"
+            system_parts.append(f"Current tasks: {tasks_text}")
+        
+        system_parts.extend([
+            "",
+            "You can:",
+            "- Answer questions and provide information",
+            "- Create tasks when users ask to do something or assign work",
+            "- Search the web for current information",
+            "- Translate text between languages",
+            "- Summarize recent conversations",
+            "",
+            "Be helpful, concise, and proactive. If someone asks you to do something, use your tools to help them."
+        ])
+        
+        system_instruction = "\n".join(system_parts)
 
-        # 2. Create Chat Session
+        # 4. Create Chat Session with tools
         chat = await gemini_client.create_chat(
             history=history,
-            system_instruction="You are a helpful AI assistant in a group chat. You can create tasks, search the web, translate text, and summarize conversations.",
+            system_instruction=system_instruction,
             tools=self._get_tool_definitions(),
         )
 
         if not chat:
             return None
 
-        # 3. Send User Message
+        # 5. Send User Message
         try:
             response = chat.send_message(content)
 
@@ -255,13 +290,62 @@ class AIOrchestrator:
 
         Returns:
             dict: Context including messages, tasks, goals, KB
-
-        TODO:
-            - Get recent messages (last 20-50)
-            - Get active tasks
-            - Get active goals
-            - Get room KB
-            - Get room members
-            - Return structured context
         """
-        pass
+        from app.services.goal_service import GoalService
+        from app.services.kb_service import KBService
+        from app.services.message_service import MessageService
+        from app.services.room_service import RoomService
+        from app.services.task_service import TaskService
+        
+        context = {}
+        
+        try:
+            # Get recent messages
+            message_service = MessageService(self.db)
+            recent_msgs = await message_service.get_recent_messages_for_context(room_id, limit=20)
+            context['recent_messages'] = [
+                f"{msg.get('sender_name', 'Unknown')}: {msg.get('content', '')}"
+                for msg in recent_msgs
+            ]
+            
+            # Get active tasks
+            task_service = TaskService(self.db)
+            tasks = await task_service.get_room_tasks(room_id)
+            context['active_tasks'] = [
+                {
+                    'title': task.title,
+                    'status': task.status,
+                    'assignee': task.assignee_name
+                }
+                for task in tasks if task.status != 'done'
+            ]
+            
+            # Get goals
+            goal_service = GoalService(self.db)
+            goals = await goal_service.get_room_goals(room_id)
+            context['goals'] = [
+                {
+                    'title': goal.title,
+                    'priority': goal.priority
+                }
+                for goal in goals
+            ]
+            
+            # Get KB
+            kb_service = KBService(self.db)
+            kb = await kb_service.get_room_kb(room_id)
+            if kb:
+                context['knowledge_base'] = {
+                    'summary': kb.summary,
+                    'key_decisions': kb.key_decisions
+                }
+            
+            # Get room info
+            room = await self.db.rooms.find_one({"id": room_id})
+            if room:
+                context['room_name'] = room.get('name', 'Unknown Room')
+                
+        except Exception as e:
+            print(f"Error gathering context: {e}")
+        
+        return context

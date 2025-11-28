@@ -3,7 +3,8 @@ from contextlib import asynccontextmanager
 
 from app.config import get_settings
 from app.db import close_mongo_connection, connect_to_mongo
-from app.routers import ai, auth, messages, rooms, tasks, ws, profiles, goals, kb
+from app.routers import (ai, auth, goals, kb, messages, profiles, rooms, tasks,
+                         ws)
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -43,9 +44,10 @@ app = FastAPI(
 
 # Configure CORS
 settings = get_settings()
+cors_origins = settings.CORS_ORIGINS.split(",") if isinstance(settings.CORS_ORIGINS, str) else settings.CORS_ORIGINS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

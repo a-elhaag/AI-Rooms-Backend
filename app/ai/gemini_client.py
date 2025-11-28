@@ -4,10 +4,9 @@ Google Gemini Client wrapper for AI operations.
 
 from typing import Any, Dict, List, Optional
 
+from app.config import get_settings
 from google import genai
 from google.genai import types
-
-from app.config import get_settings
 
 
 class GeminiClient:
@@ -107,8 +106,19 @@ class GeminiClient:
             config["tools"] = tools
 
         try:
+            # Convert history to proper Content objects
+            formatted_history = []
+            for msg in history:
+                role = msg.get('role', 'user')
+                parts = msg.get('parts', [])
+                if isinstance(parts, list) and len(parts) > 0:
+                    text = parts[0] if isinstance(parts[0], str) else str(parts[0])
+                    formatted_history.append(
+                        types.Content(role=role, parts=[types.Part.from_text(text=text)])
+                    )
+            
             return self.client.chats.create(
-                model="gemini-2.5-flash-lite", config=config, history=history
+                model="gemini-2.5-flash-lite", config=config, history=formatted_history
             )
         except Exception as e:
             print(f"Gemini Chat Error: {e}")
@@ -140,8 +150,19 @@ class GeminiClient:
         if tools:
             config["tools"] = tools
 
+        # Convert history to proper Content objects
+        formatted_history = []
+        for msg in history:
+            role = msg.get('role', 'user')
+            parts = msg.get('parts', [])
+            if isinstance(parts, list) and len(parts) > 0:
+                text = parts[0] if isinstance(parts[0], str) else str(parts[0])
+                formatted_history.append(
+                    types.Content(role=role, parts=[types.Part.from_text(text=text)])
+                )
+
         chat = self.client.chats.create(
-            model="gemini-2.5-flash-lite", config=config, history=history
+            model="gemini-2.5-flash-lite", config=config, history=formatted_history
         )
 
         response = chat.send_message(message)

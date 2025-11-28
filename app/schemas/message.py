@@ -11,7 +11,7 @@ class MessageCreate(BaseModel):
     """Schema for message creation request."""
     
     content: str = Field(..., min_length=1)
-    type: Literal["text", "image", "system"] = "text"
+    sender_type: Literal["user", "ai", "system"] = "user"
 
 
 class MessageOut(BaseModel):
@@ -19,10 +19,10 @@ class MessageOut(BaseModel):
     
     id: str
     room_id: str
-    user_id: Optional[str] = None
-    username: Optional[str] = None  # "AI" for AI messages, username for user messages
+    sender_id: Optional[str] = None  # User ID or 'ai'
+    sender_name: Optional[str] = None  # Username or 'AI Assistant'
+    sender_type: Literal["user", "ai", "system"] = "user"
     content: str
-    type: Literal["text", "image", "system"]
     created_at: datetime
     
     class Config:

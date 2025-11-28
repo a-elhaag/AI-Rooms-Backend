@@ -1,10 +1,7 @@
 """
 Security utilities - Password hashing.
 """
-from passlib.context import CryptContext
-
-# Create a CryptContext object
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+import bcrypt
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -18,7 +15,13 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Returns:
         bool: True if password matches
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        # Convert to bytes and truncate to 72 bytes for bcrypt compatibility
+        password_bytes = plain_password.encode('utf-8')[:72]
+        hashed_bytes = hashed_password.encode('utf-8') if isinstance(hashed_password, str) else hashed_password
+        return bcrypt.checkpw(password_bytes, hashed_bytes)
+    except Exception:
+        return False
 
 
 def get_password_hash(password: str) -> str:
@@ -31,7 +34,10 @@ def get_password_hash(password: str) -> str:
     Returns:
         str: Hashed password
     """
-    return pwd_context.hash(password)
+    # Truncate password to 72 bytes for bcrypt compatibility
+    password_bytes = password.encode('utf-8')[:72]
+    hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt())
+    return hashed.decode('utf-8')
 
 
 # Dependency for getting current user ID from header (POC mode)

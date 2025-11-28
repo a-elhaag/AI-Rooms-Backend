@@ -1,18 +1,180 @@
 """
 WebSocket router for real-time communication.
 """
-import json
+import re
 from typing import Dict, List, Optional
-import asyncio
-
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query, status
 
 from app.db import get_database
+from app.schemas.message import MessageCreate
 from app.services.auth_service import AuthService
 from app.services.message_service import MessageService
-from app.schemas.message import MessageCreate
+from app.services.room_service import RoomService
+from fastapi import (APIRouter, Depends, Query, WebSocket, WebSocketDisconnect,
+                     status)
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 router = APIRouter(tags=["WebSocket"])
+
+
+def parse_mentions(content: str) -> List[str]:
+    """
+    Parse @mentions from message content.
+    
+    Args:
+        content: Message content
+        
+    Returns:
+        List of mentioned usernames/keywords
+    """
+    return re.findall(r'@(\w+)', content)
+
+
+async def handle_slash_command(
+    db: AsyncIOMotorDatabase,
+    room_id: str,
+    user_id: str,
+    content: str,
+    manager: "ConnectionManager"
+) -> Optional[dict]:
+    """
+    Handle slash commands like /translate, /summarize, /search, /tasks, /help.
+    
+    Args:
+        db: Database instance
+        room_id: Room ID
+        user_id: User ID
+        content: Command content
+        manager: Connection manager
+        
+    Returns:
+        Command result or None if not a valid command
+    """
+    from app.ai.orchestrator import AIOrchestrator
+    from app.services.message_service import MessageService
+    
+    parts = content.split(' ', 1)
+    command = parts[0].lower()
+    args = parts[1] if len(parts) > 1 else ''
+    
+    orchestrator = AIOrchestrator(db)
+    message_service = MessageService(db)
+    
+    result_content = None
+    
+    if command == '/help':
+        result_content = """**Available Commands:**
+• `/translate [lang] [text]` - Translate text to specified language (e.g., /translate french hello world)
+• `/summarize [n]` - Summarize the last n messages (default: 10)
+• `/search [query]` - Search the web for information
+• `/tasks` - List all tasks in this room
+• `/help` - Show this help message
+
+**Mentions:**
+• `@ai` or `@assistant` - Directly mention the AI to get a response
+• `@username` - Mention a room member"""
+    
+    elif command == '/translate':
+        # Parse: /translate [lang] [text]
+        translate_parts = args.split(' ', 1)
+        if len(translate_parts) < 2:
+            result_content = "**Usage:** `/translate [language] [text]`\nExample: `/translate spanish Hello, how are you?`"
+        else:
+            target_lang = translate_parts[0]
+            text_to_translate = translate_parts[1]
+            # Use orchestrator's translate tool
+            result = await orchestrator.handle_message(
+                room_id=room_id,
+                user_id=user_id,
+                content=f"Translate this to {target_lang}: {text_to_translate}",
+                message_id="command"
+            )
+            result_content = result.get("content") if result else "Translation failed."
+    
+    elif command == '/summarize':
+        # Get number of messages to summarize
+        n = 10
+        if args.strip().isdigit():
+            n = int(args.strip())
+        
+        # Get recent messages
+        messages = await message_service.get_room_messages(room_id=room_id, limit=n)
+        if not messages:
+            result_content = "No messages to summarize."
+        else:
+            # Format messages for summarization
+            message_texts = [f"{m.sender_name or 'User'}: {m.content}" for m in reversed(messages)]
+            messages_str = "\n".join(message_texts)
+            
+            result = await orchestrator.handle_message(
+                room_id=room_id,
+                user_id=user_id,
+                content=f"Summarize this conversation:\n{messages_str}",
+                message_id="command"
+            )
+            result_content = result.get("content") if result else "Summarization failed."
+    
+    elif command == '/search':
+        if not args.strip():
+            result_content = "**Usage:** `/search [query]`\nExample: `/search latest Python features`"
+        else:
+            result = await orchestrator.handle_message(
+                room_id=room_id,
+                user_id=user_id,
+                content=f"Search the web for: {args}",
+                message_id="command"
+            )
+            result_content = result.get("content") if result else "Search failed."
+    
+    elif command == '/tasks':
+        from app.services.task_service import TaskService
+        task_service = TaskService(db)
+        tasks = await task_service.get_room_tasks(room_id=room_id)
+        
+        if not tasks:
+            result_content = "📋 No tasks in this room yet."
+        else:
+            task_lines = []
+            for t in tasks:
+                status_emoji = "✅" if t.status == "done" else "⏳" if t.status == "in_progress" else "📌"
+                assignee = f" ({t.assignee_name})" if t.assignee_name else ""
+                task_lines.append(f"{status_emoji} **{t.title}**{assignee} - {t.status}")
+            result_content = "📋 **Room Tasks:**\n" + "\n".join(task_lines)
+            result_content = "📋 **Room Tasks:**\n" + "\n".join(task_lines)
+    
+    else:
+        # Unknown command
+        return None
+    
+    if result_content:
+        # Save AI response to DB
+        ai_message_data = MessageCreate(
+            content=result_content,
+            sender_type="ai"
+        )
+        
+        ai_message = await message_service.create_message(
+            room_id=room_id,
+            message_data=ai_message_data,
+            user_id="ai_assistant"
+        )
+        
+        # Broadcast AI response to room
+        await manager.broadcast_to_room(room_id, {
+            "type": "message",
+            "message": {
+                "id": ai_message.id,
+                "room_id": ai_message.room_id,
+                "content": ai_message.content,
+                "sender_type": ai_message.sender_type,
+                "sender_id": "ai_assistant",
+                "sender_name": "AI Assistant",
+                "created_at": ai_message.created_at.isoformat() if hasattr(ai_message.created_at, 'isoformat') else str(ai_message.created_at)
+            }
+        })
+        
+        return {"handled": True}
+    
+    return None
 
 
 class ConnectionManager:
@@ -87,8 +249,7 @@ async def websocket_endpoint(
     websocket: WebSocket,
     room_id: str,
     token: Optional[str] = Query(None),
-    # In a real app we'd inject services, but here we construct them or get from app state
-    # For now we'll get DB directly
+    db: AsyncIOMotorDatabase = Depends(get_database)
 ) -> None:
     """
     WebSocket endpoint for real-time chat.
@@ -97,6 +258,7 @@ async def websocket_endpoint(
         websocket: WebSocket connection
         room_id: Room ID to join
         token: Authentication token (using user_id as token for POC)
+        db: Database instance
     """
     # Simple validation - in POC token is just user_id
     user_id = token
@@ -105,12 +267,17 @@ async def websocket_endpoint(
         return
 
     # Verify user exists
-    db = await get_database()
     auth_service = AuthService(db)
     user = await auth_service.get_user_by_id(user_id)
 
     if not user:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+    
+    # Verify user is member of the room
+    room_service = RoomService(db)
+    if not await room_service.is_member(room_id, user_id):
+        await websocket.close(code=status.WS_1003_UNSUPPORTED_DATA)
         return
 
     await manager.connect(websocket, room_id, user_id)
@@ -119,7 +286,8 @@ async def websocket_endpoint(
     await manager.broadcast_to_room(room_id, {
         "type": "system",
         "content": f"{user.username} joined the chat",
-        "room_id": room_id
+        "room_id": room_id,
+        "timestamp": None
     })
     
     try:
@@ -131,10 +299,27 @@ async def websocket_endpoint(
 
             if message_type == "message":
                 content = data.get("content")
-                if content:
-                    # Save to DB
+                if content and content.strip():
+                    content = content.strip()
+                    
+                    # Check for / commands (translate, summarize, etc.)
+                    is_command = content.startswith('/')
+                    command_result = None
+                    
+                    if is_command:
+                        command_result = await handle_slash_command(
+                            db, room_id, user_id, content, manager
+                        )
+                        if command_result:
+                            # Command handled, continue to next message
+                            continue
+                    
+                    # Save user message to DB
                     message_service = MessageService(db)
-                    message_data = MessageCreate(content=content)
+                    message_data = MessageCreate(
+                        content=content,
+                        sender_type="user"
+                    )
 
                     saved_message = await message_service.create_message(
                         room_id=room_id,
@@ -142,21 +327,116 @@ async def websocket_endpoint(
                         user_id=user_id
                     )
 
-                    # Broadcast to room
+                    # Broadcast user message to room
                     await manager.broadcast_to_room(room_id, {
                         "type": "message",
-                        "message": saved_message.dict(),
-                        "user": user.dict()
+                        "message": {
+                            "id": saved_message.id,
+                            "room_id": saved_message.room_id,
+                            "content": saved_message.content,
+                            "sender_type": saved_message.sender_type,
+                            "sender_id": saved_message.sender_id,
+                            "sender_name": saved_message.sender_name,
+                            "created_at": saved_message.created_at.isoformat() if hasattr(saved_message.created_at, 'isoformat') else str(saved_message.created_at)
+                        }
                     })
+                    
+                    # Check for @ mentions
+                    mentions = parse_mentions(content)
+                    ai_mentioned = any(m.lower() in ['ai', 'assistant', 'bot'] for m in mentions)
+                    
+                    print(f"[AI DEBUG] Message: {content[:50]}... | @mentions: {mentions} | AI mentioned: {ai_mentioned}")
+                    
+                    # Check if AI should respond
+                    from app.ai.classifier import ShouldRespondClassifier
+                    from app.ai.orchestrator import AIOrchestrator
+
+                    # Force AI response if explicitly mentioned
+                    should_respond = ai_mentioned
+                    
+                    if not should_respond:
+                        classifier = ShouldRespondClassifier()
+                        orchestrator = AIOrchestrator(db)
+                        
+                        # Gather context for decision
+                        context = await orchestrator.gather_room_context(room_id)
+                        
+                        # Decide if AI should respond
+                        should_respond = await classifier.should_respond(
+                            room_id=room_id,
+                            user_id=user_id,
+                            content=content,
+                            context=context
+                        )
+                        print(f"[AI DEBUG] Classifier decision: {should_respond}")
+                    else:
+                        orchestrator = AIOrchestrator(db)
+                        print(f"[AI DEBUG] AI mentioned directly, will respond")
+                    
+                    if should_respond:
+                        print(f"[AI DEBUG] Getting AI response for: {content[:50]}...")
+                        # Get AI response
+                        ai_result = await orchestrator.handle_message(
+                            room_id=room_id,
+                            user_id=user_id,
+                            content=content,
+                            message_id=saved_message.id
+                        )
+                        
+                        print(f"[AI DEBUG] AI result: {ai_result}")
+                        
+                        if ai_result and ai_result.get("content"):
+                            # Save AI response to DB
+                            ai_message_data = MessageCreate(
+                                content=ai_result["content"],
+                                sender_type="ai"
+                            )
+                            
+                            ai_message = await message_service.create_message(
+                                room_id=room_id,
+                                message_data=ai_message_data,
+                                user_id="ai_assistant"  # Special AI user ID
+                            )
+                            
+                            print(f"[AI DEBUG] Broadcasting AI response: {ai_message.content[:50]}...")
+                            
+                            # Broadcast AI response to room
+                            await manager.broadcast_to_room(room_id, {
+                                "type": "message",
+                                "message": {
+                                    "id": ai_message.id,
+                                    "room_id": ai_message.room_id,
+                                    "content": ai_message.content,
+                                    "sender_type": ai_message.sender_type,
+                                    "sender_id": "ai_assistant",
+                                    "sender_name": "AI Assistant",
+                                    "created_at": ai_message.created_at.isoformat() if hasattr(ai_message.created_at, 'isoformat') else str(ai_message.created_at)
+                                }
+                            })
+                        else:
+                            print(f"[AI DEBUG] No AI response content received")
+                    else:
+                        print(f"[AI DEBUG] AI decided not to respond")
+            
+            elif message_type == "typing":
+                # Broadcast typing indicator to others in room
+                await manager.broadcast_to_room(room_id, {
+                    "type": "typing",
+                    "user_id": user_id,
+                    "username": user.username,
+                    "is_typing": data.get("is_typing", True)
+                })
             
     except WebSocketDisconnect:
         await manager.disconnect(websocket, room_id)
         await manager.broadcast_to_room(room_id, {
             "type": "system",
             "content": f"{user.username} left the chat",
-            "room_id": room_id
+            "room_id": room_id,
+            "timestamp": None
         })
     except Exception as e:
         # Log error in real app
-        print(f"WebSocket error: {e}")
+        import logging
+        logging.error(f"WebSocket error in room {room_id} for user {user_id}: {e}")
         await manager.disconnect(websocket, room_id)

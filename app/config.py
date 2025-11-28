@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     GOOGLE_API_KEY: str = ""
 
     # Application Configuration
-    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 
     # POC Mode - Simplified auth (no JWT for testing)
     POC_MODE: bool = True

@@ -41,24 +41,26 @@ class MessageService:
         from bson import ObjectId
 
         # Fetch username from database
-        username = "AI"
-        if user_id:
+        sender_name = "AI Assistant"
+        sender_id = user_id or "ai"
+        
+        if user_id and user_id != "ai_assistant":
             try:
                 user = await self.db.users.find_one({"_id": ObjectId(user_id)})
                 if user:
-                    username = user.get("username", "Unknown")
+                    sender_name = user.get("username", "Unknown User")
                 else:
-                    username = "Unknown"
+                    sender_name = "Unknown User"
             except:
-                username = "Unknown"
+                sender_name = "Unknown User"
         
         message_doc = {
             "id": str(uuid.uuid4()),
             "room_id": room_id,
-            "user_id": user_id or "ai",
-            "username": username,
+            "sender_id": sender_id,
+            "sender_name": sender_name,
+            "sender_type": message_data.sender_type,
             "content": message_data.content,
-            "type": message_data.type,
             "created_at": datetime.utcnow()
         }
         
