@@ -5,8 +5,9 @@ AI Orchestrator for managing agent decisions and workflow.
 from typing import Any, Optional
 
 from app.ai.gemini_client import gemini_client
-from app.ai.tools import (tool_create_task, tool_list_tasks,
-                          tool_react_to_message, tool_summarize_messages,
+from app.ai.tools import (tool_ask_documents, tool_create_task,
+                          tool_list_tasks, tool_react_to_message,
+                          tool_search_documents, tool_summarize_messages,
                           tool_translate_text, tool_update_task,
                           tool_web_search)
 from google.genai import types
@@ -161,6 +162,34 @@ class AIOrchestrator:
                             "required": ["emoji"],
                         },
                     },
+                    {
+                        "name": "search_documents",
+                        "description": "Search uploaded documents (PDFs, PowerPoints) for relevant information. Use this when the user asks about document content or needs information from uploaded files.",
+                        "parameters": {
+                            "type": "OBJECT",
+                            "properties": {
+                                "query": {
+                                    "type": "STRING",
+                                    "description": "The search query to find relevant document content",
+                                }
+                            },
+                            "required": ["query"],
+                        },
+                    },
+                    {
+                        "name": "ask_documents",
+                        "description": "Ask a question and get an answer based on uploaded documents using RAG. Use this for questions about document content.",
+                        "parameters": {
+                            "type": "OBJECT",
+                            "properties": {
+                                "question": {
+                                    "type": "STRING",
+                                    "description": "The question to answer based on document content",
+                                }
+                            },
+                            "required": ["question"],
+                        },
+                    },
                 ]
             }
         ]
@@ -221,6 +250,18 @@ class AIOrchestrator:
         if context.get('goals'):
             goals_text = ", ".join([g['title'] for g in context['goals'][:3]])
             system_parts.append(f"Room goals: {goals_text}")
+        
+        # Add Knowledge Base context
+        kb = context.get('knowledge_base')
+        if kb:
+            if kb.get('summary'):
+                system_parts.append(f"\nRoom Knowledge Base Summary: {kb['summary']}")
+            if kb.get('key_decisions'):
+                decisions = kb['key_decisions'][:5]  # Limit to 5
+                system_parts.append(f"Key Decisions: {', '.join(decisions)}")
+            if kb.get('important_links'):
+                links = [f"{l.get('title', 'Link')}" for l in kb['important_links'][:3]]
+                system_parts.append(f"Important Links: {', '.join(links)}")
         
         if active_tasks_info:
             system_parts.append(active_tasks_info)
@@ -345,6 +386,18 @@ class AIOrchestrator:
                         )
                         if result:
                             executed_tools.append({"type": "reaction", "emoji": reaction_emoji, "message_id": message_id})
+                    elif tool_name == "search_documents":
+                        result = await tool_search_documents(
+                            self.db,
+                            room_id,
+                            query=args.get("query", ""),
+                        )
+                    elif tool_name == "ask_documents":
+                        result = await tool_ask_documents(
+                            self.db,
+                            room_id,
+                            question=args.get("question", ""),
+                        )
 
                     # Send result back to Gemini
                     response = chat.send_message(
@@ -471,7 +524,9 @@ class AIOrchestrator:
             if kb:
                 context['knowledge_base'] = {
                     'summary': kb.summary,
-                    'key_decisions': kb.key_decisions
+                    'key_decisions': kb.key_decisions or [],
+                    'important_links': kb.important_links or [],
+                    'resources': kb.resources or []
                 }
             
             # Get room info

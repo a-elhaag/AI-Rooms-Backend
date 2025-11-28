@@ -309,6 +309,67 @@ async def tool_web_search(query: str) -> list[dict]:
     ]
 
 
+async def tool_search_documents(
+    db: AsyncIOMotorDatabase,
+    room_id: str,
+    query: str,
+    limit: int = 5
+) -> list[dict]:
+    """
+    Search uploaded documents using semantic search (RAG).
+
+    Args:
+        db: Database instance
+        room_id: Room ID
+        query: Search query
+        limit: Maximum number of results
+
+    Returns:
+        list[dict]: Relevant document chunks with content and metadata
+    """
+    from app.services.rag_service import RAGService
+    
+    rag_service = RAGService(db)
+    results = await rag_service.semantic_search(room_id, query, limit)
+    
+    if not results:
+        return [{"message": "No relevant documents found."}]
+    
+    return [
+        {
+            "content": r.get("content", "")[:500],  # Limit content length
+            "document_id": r.get("document_id"),
+            "page_number": r.get("page_number"),
+            "similarity": round(r.get("similarity", 0) * 100, 1)
+        }
+        for r in results
+    ]
+
+
+async def tool_ask_documents(
+    db: AsyncIOMotorDatabase,
+    room_id: str,
+    question: str
+) -> str:
+    """
+    Ask a question about uploaded documents using RAG.
+
+    Args:
+        db: Database instance
+        room_id: Room ID
+        question: User's question
+
+    Returns:
+        str: AI-generated answer based on document content
+    """
+    from app.services.rag_service import RAGService
+    
+    rag_service = RAGService(db)
+    answer = await rag_service.ask_document(room_id, question)
+    
+    return answer
+
+
 # Creative Tools
 
 
