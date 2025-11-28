@@ -3,14 +3,13 @@ Room goals router.
 """
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from motor.motor_asyncio import AsyncIOMotorDatabase
-
 from app.db import get_database
 from app.schemas.goal import GoalCreate, GoalOut, GoalUpdate
 from app.services.goal_service import GoalService
 from app.services.room_service import RoomService
 from app.utils.security import get_current_user_id
+from fastapi import APIRouter, Depends, HTTPException, status
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 router = APIRouter(
     tags=["Goals"],

@@ -1,14 +1,13 @@
 """
 Room knowledge base router.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
-from motor.motor_asyncio import AsyncIOMotorDatabase
-
 from app.db import get_database
 from app.schemas.kb import KBOut, KBUpdate
 from app.services.kb_service import KBService
 from app.services.room_service import RoomService
 from app.utils.security import get_current_user_id
+from fastapi import APIRouter, Depends, HTTPException, status
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 router = APIRouter(
     tags=["Knowledge Base"],
