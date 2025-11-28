@@ -13,14 +13,13 @@ These tools provide concrete actions the AI can take:
 from datetime import datetime
 from typing import Any, Optional
 
-from motor.motor_asyncio import AsyncIOMotorDatabase
-
 from app.ai.gemini_client import gemini_client
-from app.services.task_service import TaskService
+from app.schemas.kb import KBUpdate
+from app.schemas.task import TaskCreate, TaskUpdate
 from app.services.kb_service import KBService
 from app.services.message_service import MessageService
-from app.schemas.task import TaskCreate, TaskUpdate
-from app.schemas.kb import KBUpdate
+from app.services.task_service import TaskService
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 # Task Management Tools
 

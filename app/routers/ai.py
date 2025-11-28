@@ -5,11 +5,10 @@ AI router for direct AI operations (rewrite, translate, summarize, etc.).
 from datetime import datetime
 from typing import Optional
 
+from app.db import get_database
 from fastapi import APIRouter, Depends
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, Field
-
-from app.db import get_database
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
@@ -57,12 +56,8 @@ class SummarizeResponse(BaseModel):
     summary: str
 
 
-from app.ai.tools import (
-    tool_rephrase_text,
-    tool_summarize_messages,
-    tool_translate_text,
-    tool_update_room_kb,
-)
+from app.ai.tools import (tool_rephrase_text, tool_summarize_messages,
+                          tool_translate_text, tool_update_room_kb)
 from app.models.kb import KnowledgeBaseResponse
 
 

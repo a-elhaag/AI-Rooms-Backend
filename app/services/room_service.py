@@ -141,7 +141,7 @@ class RoomService:
             List[RoomMemberOut]: List of room members with user details
         """
         from bson import ObjectId
-        
+
         # Get all members for the room
         members_cursor = self.db.room_members.find({"room_id": room_id})
         members = []
