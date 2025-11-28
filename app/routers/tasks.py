@@ -1,6 +1,8 @@
 """
 Tasks router for task management.
 """
+from typing import List
+
 from app.db import get_database
 from app.schemas.task import TaskCreate, TaskOut, TaskUpdate
 from app.services.room_service import RoomService
@@ -12,7 +14,50 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 router = APIRouter(tags=["Tasks"])
 
 
-@router.get("/rooms/{room_id}/tasks", response_model=list[TaskOut])
+@router.get("/tasks", response_model=List[TaskOut])
+async def get_all_user_tasks(
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    current_user_id: str = Depends(get_current_user_id)
+) -> List[TaskOut]:
+    """
+    Get all tasks across all rooms the user is a member of.
+    
+    Args:
+        db: Database instance
+        current_user_id: Current user ID from header
+        
+    Returns:
+        List[TaskOut]: List of tasks from all user's rooms
+    """
+    room_service = RoomService(db)
+    task_service = TaskService(db)
+    
+    # Get all rooms user is a member of
+    rooms = await room_service.get_user_rooms(current_user_id)
+    
+    all_tasks = []
+    for room in rooms:
+        room_tasks = await task_service.get_room_tasks(room.id)
+        # Add room name to each task for display
+        for task in room_tasks:
+            all_tasks.append(TaskOut(
+                id=task.id,
+                room_id=task.room_id,
+                room_name=room.name,
+                title=task.title,
+                status=task.status,
+                assignee_id=task.assignee_id,
+                assignee_name=task.assignee_name,
+                due_date=task.due_date,
+                created_at=task.created_at
+            ))
+    
+    # Sort by created_at descending
+    all_tasks.sort(key=lambda t: t.created_at, reverse=True)
+    return all_tasks
+
+
+@router.get("/rooms/{room_id}/tasks", response_model=List[TaskOut])
 async def get_room_tasks(
     room_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -71,7 +116,25 @@ async def create_task(
         )
     
     task_service = TaskService(db)
-    return await task_service.create_task(room_id, task_data)
+    task = await task_service.create_task(room_id, task_data)
+    
+    # Broadcast task creation via WebSocket
+    from app.routers.ws import manager
+    await manager.broadcast_to_room(room_id, {
+        "type": "task_created",
+        "task": {
+            "id": task.id,
+            "room_id": task.room_id,
+            "title": task.title,
+            "status": task.status,
+            "assignee_id": task.assignee_id,
+            "assignee_name": task.assignee_name,
+            "due_date": task.due_date.isoformat() if task.due_date else None,
+            "created_at": task.created_at.isoformat() if hasattr(task.created_at, 'isoformat') else str(task.created_at)
+        }
+    })
+    
+    return task
 
 
 @router.patch("/tasks/{task_id}", response_model=TaskOut)
@@ -118,5 +181,21 @@ async def update_task(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Task not found"
         )
+    
+    # Broadcast task update via WebSocket
+    from app.routers.ws import manager
+    await manager.broadcast_to_room(task.room_id, {
+        "type": "task_updated",
+        "task": {
+            "id": updated_task.id,
+            "room_id": updated_task.room_id,
+            "title": updated_task.title,
+            "status": updated_task.status,
+            "assignee_id": updated_task.assignee_id,
+            "assignee_name": updated_task.assignee_name,
+            "due_date": updated_task.due_date.isoformat() if updated_task.due_date else None,
+            "created_at": updated_task.created_at.isoformat() if hasattr(updated_task.created_at, 'isoformat') else str(updated_task.created_at)
+        }
+    })
     
     return updated_task

@@ -18,6 +18,14 @@ python-multipart==0.0.20
 # AI/ML
 google-genai==1.0.0
 
+# Document Processing (RAG)
+pypdf==5.1.0
+python-pptx==1.0.2
+langchain==0.3.12
+langchain-google-genai==2.0.7
+langchain-community==0.3.12
+
 # Utilities
 python-dotenv==1.0.1
 typing_extensions==4.15.0
+aiofiles==24.1.0

@@ -3,8 +3,8 @@ from contextlib import asynccontextmanager
 
 from app.config import get_settings
 from app.db import close_mongo_connection, connect_to_mongo
-from app.routers import (ai, auth, goals, kb, messages, profiles, rooms, tasks,
-                         ws)
+from app.routers import (ai, auth, documents, goals, kb, messages, profiles,
+                         rooms, tasks, ws)
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -60,6 +60,7 @@ app.include_router(profiles.router)
 app.include_router(rooms.router)
 app.include_router(goals.router)
 app.include_router(kb.router)
+app.include_router(documents.router)
 app.include_router(messages.router)
 app.include_router(tasks.router)
 app.include_router(ai.router)

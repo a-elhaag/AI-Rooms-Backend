@@ -37,7 +37,7 @@ async def handle_slash_command(
     manager: "ConnectionManager"
 ) -> Optional[dict]:
     """
-    Handle slash commands like /translate, /summarize, /search, /tasks, /help.
+    Handle slash commands like /translate, /summarize, /search, /tasks, /help, /ask.
     
     Args:
         db: Database instance
@@ -63,15 +63,40 @@ async def handle_slash_command(
     
     if command == '/help':
         result_content = """**Available Commands:**
-• `/translate [lang] [text]` - Translate text to specified language (e.g., /translate french hello world)
+• `/translate [lang] [text]` - Translate text to specified language
 • `/summarize [n]` - Summarize the last n messages (default: 10)
 • `/search [query]` - Search the web for information
 • `/tasks` - List all tasks in this room
+• `/ask [question]` - Ask a question about uploaded documents (RAG)
+• `/docs` - List uploaded documents
 • `/help` - Show this help message
 
 **Mentions:**
 • `@ai` or `@assistant` - Directly mention the AI to get a response
 • `@username` - Mention a room member"""
+    
+    elif command == '/ask':
+        # RAG document question answering
+        if not args.strip():
+            result_content = "**Usage:** `/ask [question]`\nExample: `/ask What are the main points in the document?`"
+        else:
+            from app.services.rag_service import RAGService
+            rag_service = RAGService(db)
+            answer = await rag_service.ask_document(room_id, args.strip())
+            result_content = f"📚 **Document Q&A:**\n\n{answer}"
+    
+    elif command == '/docs':
+        from app.services.rag_service import RAGService
+        rag_service = RAGService(db)
+        docs = await rag_service.get_room_documents(room_id)
+        
+        if not docs:
+            result_content = "📁 No documents uploaded yet. Drag and drop a PDF or PowerPoint file to upload."
+        else:
+            doc_lines = []
+            for doc in docs[:10]:
+                doc_lines.append(f"• **{doc.filename}** ({doc.file_type.upper()}) - {doc.chunk_count} chunks")
+            result_content = "📁 **Uploaded Documents:**\n" + "\n".join(doc_lines)
     
     elif command == '/translate':
         # Parse: /translate [lang] [text]
@@ -139,7 +164,6 @@ async def handle_slash_command(
                 assignee = f" ({t.assignee_name})" if t.assignee_name else ""
                 task_lines.append(f"{status_emoji} **{t.title}**{assignee} - {t.status}")
             result_content = "📋 **Room Tasks:**\n" + "\n".join(task_lines)
-            result_content = "📋 **Room Tasks:**\n" + "\n".join(task_lines)
     
     else:
         # Unknown command
@@ -188,6 +212,10 @@ class ConnectionManager:
         self.active_connections: Dict[str, List[WebSocket]] = {}
         # Mapping websocket to user_id for cleanup
         self.ws_to_user: Dict[WebSocket, str] = {}
+        # Typing status per room
+        self.typing_users: Dict[str, Dict[str, str]] = {}  # room_id -> {user_id: username}
+        # Read receipts per room
+        self.read_receipts: Dict[str, Dict[str, str]] = {}  # room_id -> {user_id: last_message_id}
     
     async def connect(self, websocket: WebSocket, room_id: str, user_id: str) -> None:
         """
@@ -218,6 +246,10 @@ class ConnectionManager:
                 if not self.active_connections[room_id]:
                     del self.active_connections[room_id]
 
+        user_id = self.ws_to_user.get(websocket)
+        if user_id and room_id in self.typing_users:
+            self.typing_users[room_id].pop(user_id, None)
+
         if websocket in self.ws_to_user:
             del self.ws_to_user[websocket]
     
@@ -238,6 +270,33 @@ class ConnectionManager:
                 except Exception:
                     # If sending fails, assume disconnected and cleanup
                     await self.disconnect(connection, room_id)
+    
+    async def broadcast_to_user(self, user_id: str, message: dict) -> None:
+        """
+        Broadcast a message to a specific user across all their connections.
+        
+        Args:
+            user_id: User ID to send to
+            message: Message data to broadcast
+        """
+        for ws, uid in list(self.ws_to_user.items()):
+            if uid == user_id:
+                try:
+                    await ws.send_json(message)
+                except Exception:
+                    pass
+    
+    def get_online_users(self, room_id: str) -> List[str]:
+        """Get list of online user IDs in a room."""
+        if room_id not in self.active_connections:
+            return []
+        
+        online = set()
+        for ws in self.active_connections[room_id]:
+            user_id = self.ws_to_user.get(ws)
+            if user_id:
+                online.add(user_id)
+        return list(online)
 
 
 # Global connection manager instance
@@ -282,12 +341,21 @@ async def websocket_endpoint(
 
     await manager.connect(websocket, room_id, user_id)
     
-    # Broadcast join message
+    # Broadcast join message and presence update
     await manager.broadcast_to_room(room_id, {
         "type": "system",
         "content": f"{user.username} joined the chat",
         "room_id": room_id,
         "timestamp": None
+    })
+    
+    # Send presence update with all online users
+    online_users = manager.get_online_users(room_id)
+    await manager.broadcast_to_room(room_id, {
+        "type": "presence",
+        "online_users": online_users,
+        "user_joined": user_id,
+        "username": user.username
     })
     
     try:
@@ -479,11 +547,22 @@ async def websocket_endpoint(
             
     except WebSocketDisconnect:
         await manager.disconnect(websocket, room_id)
+        
+        # Broadcast leave message and presence update
         await manager.broadcast_to_room(room_id, {
             "type": "system",
             "content": f"{user.username} left the chat",
             "room_id": room_id,
             "timestamp": None
+        })
+        
+        # Send presence update with remaining online users
+        online_users = manager.get_online_users(room_id)
+        await manager.broadcast_to_room(room_id, {
+            "type": "presence",
+            "online_users": online_users,
+            "user_left": user_id,
+            "username": user.username
         })
     except Exception as e:
         # Log error in real app

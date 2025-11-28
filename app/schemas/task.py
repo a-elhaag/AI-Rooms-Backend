@@ -29,6 +29,7 @@ class TaskOut(BaseModel):
     
     id: str
     room_id: str
+    room_name: Optional[str] = None  # Room name for display in global tasks view
     title: str
     status: Literal["todo", "in_progress", "done"]
     assignee_id: Optional[str] = None
