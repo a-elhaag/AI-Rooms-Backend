@@ -7,6 +7,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.db import get_database
 from app.schemas.kb import KBOut, KBUpdate
 from app.services.kb_service import KBService
+from app.services.room_service import RoomService
 from app.utils.security import get_current_user_id
 
 router = APIRouter(
@@ -24,7 +25,14 @@ async def get_room_kb(
     """
     Get knowledge base for a room.
     """
-    # TODO: Check if user is member of room
+    # Verify user is a member of the room
+    room_service = RoomService(db)
+    if not await room_service.is_member(room_id, user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this room"
+        )
+    
     service = KBService(db)
     kb = await service.get_room_kb(room_id)
 
@@ -45,7 +53,14 @@ async def update_room_kb(
     """
     Update room knowledge base.
     """
-    # TODO: Check if user is member of room
+    # Verify user is a member of the room
+    room_service = RoomService(db)
+    if not await room_service.is_member(room_id, user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this room"
+        )
+    
     service = KBService(db)
     kb = await service.update_kb(room_id, kb_data)
 
