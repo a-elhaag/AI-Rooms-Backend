@@ -3,7 +3,8 @@ Authentication router for user registration, login, and profile.
 """
 
 from app.db import get_database
-from app.schemas.auth import UserLogin, UserOut, UserRegister
+from app.schemas.auth import (PasswordChange, ProfileUpdate, UserLogin,
+                              UserOut, UserRegister)
 from app.services.auth_service import AuthService
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -79,3 +80,59 @@ async def get_current_user(
         )
     
     return user
+
+
+@router.patch("/profile", response_model=UserOut)
+async def update_profile(
+    profile_data: ProfileUpdate,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    x_user_id: str = Header(None, alias="X-User-Id"),
+) -> UserOut:
+    """
+    Update user profile information.
+
+    Args:
+        profile_data: Profile update data
+        db: Database instance
+        x_user_id: User ID from header
+
+    Returns:
+        UserOut: Updated user information
+    """
+    if not x_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+    
+    auth_service = AuthService(db)
+    return await auth_service.update_profile(x_user_id, profile_data)
+
+
+@router.patch("/password")
+async def change_password(
+    password_data: PasswordChange,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    x_user_id: str = Header(None, alias="X-User-Id"),
+):
+    """
+    Change user password.
+
+    Args:
+        password_data: Current and new password
+        db: Database instance
+        x_user_id: User ID from header
+
+    Returns:
+        Success message
+    """
+    if not x_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+    
+    auth_service = AuthService(db)
+    await auth_service.change_password(x_user_id, password_data)
+    
+    return {"message": "Password changed successfully"}

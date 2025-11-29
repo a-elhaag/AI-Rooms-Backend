@@ -191,7 +191,7 @@ async def handle_slash_command(
                 "content": ai_message.content,
                 "sender_type": ai_message.sender_type,
                 "sender_id": "ai_assistant",
-                "sender_name": "AI Assistant",
+                "sender_name": "Veya",
                 "created_at": ai_message.created_at.isoformat() if hasattr(ai_message.created_at, 'isoformat') else str(ai_message.created_at)
             }
         })
@@ -341,15 +341,7 @@ async def websocket_endpoint(
 
     await manager.connect(websocket, room_id, user_id)
     
-    # Broadcast join message and presence update
-    await manager.broadcast_to_room(room_id, {
-        "type": "system",
-        "content": f"{user.username} joined the chat",
-        "room_id": room_id,
-        "timestamp": None
-    })
-    
-    # Send presence update with all online users
+    # Send presence update with all online users (no join system message)
     online_users = manager.get_online_users(room_id)
     await manager.broadcast_to_room(room_id, {
         "type": "presence",
@@ -481,7 +473,7 @@ async def websocket_endpoint(
                                         "type": "reaction",
                                         "message_id": tool_result["message_id"],
                                         "emoji": tool_result["emoji"],
-                                        "user": "AI Assistant"
+                                        "user": "Veya"
                                     })
                         
                         if ai_result and ai_result.get("content"):
@@ -509,7 +501,7 @@ async def websocket_endpoint(
                                     "content": ai_message.content,
                                     "sender_type": ai_message.sender_type,
                                     "sender_id": "ai_assistant",
-                                    "sender_name": "AI Assistant",
+                                    "sender_name": "Veya",
                                     "reply_to": ai_message.reply_to,
                                     "reactions": {},
                                     "created_at": ai_message.created_at.isoformat() if hasattr(ai_message.created_at, 'isoformat') else str(ai_message.created_at)

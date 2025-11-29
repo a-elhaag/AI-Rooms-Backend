@@ -44,7 +44,8 @@ class RoomService:
             "updated_at": datetime.utcnow(),
             "member_count": 1,
             "message_count": 0,
-            "has_ai": True  # Default to true for now
+            "has_ai": True,  # Default to true for now
+            "custom_ai_instructions": room_data.custom_ai_instructions or None,
         }
         
         # Create room document
@@ -129,6 +130,67 @@ class RoomService:
         # Fetch updated room
         updated_room = await self.db.rooms.find_one({"id": room["id"]})
         return RoomOut(**updated_room) if updated_room else RoomOut(**room)
+
+    async def get_room(self, room_id: str) -> Optional[RoomOut]:
+        doc = await self.db.rooms.find_one({"id": room_id})
+        return RoomOut(**doc) if doc else None
+
+    async def update_room_settings(
+        self,
+        room_id: str,
+        requester_id: str,
+        custom_ai_instructions: Optional[str] = None,
+        name: Optional[str] = None,
+    ) -> Optional[RoomOut]:
+        """
+        Update room settings (owner only). Supports updating `custom_ai_instructions` and `name`.
+
+        Args:
+            room_id: Room ID
+            requester_id: ID of the user requesting the change
+            custom_ai_instructions: Optional AI instructions to set (can be None to clear)
+            name: Optional new room name (if provided, will update name)
+
+        Returns:
+            Optional[RoomOut]: Updated room or None if not allowed/found
+        """
+        room = await self.db.rooms.find_one({"id": room_id})
+        if not room or room.get("owner_id") != requester_id:
+            return None
+
+        # Build the $set payload dynamically so we only change provided fields
+        set_payload = {"updated_at": datetime.utcnow()}
+
+        if custom_ai_instructions is not None:
+            set_payload["custom_ai_instructions"] = custom_ai_instructions
+
+        if name is not None:
+            # Trim and ensure non-empty names are applied; empty string will be ignored
+            new_name = name.strip()
+            if new_name:
+                set_payload["name"] = new_name
+
+        if len(set_payload) > 0:
+            await self.db.rooms.update_one({"id": room_id}, {"$set": set_payload})
+
+        updated = await self.db.rooms.find_one({"id": room_id})
+        return RoomOut(**updated) if updated else None
+
+    async def delete_room(self, room_id: str, requester_id: str) -> bool:
+        """Delete a room and related data if requester is owner."""
+        room = await self.db.rooms.find_one({"id": room_id})
+        if not room or room.get("owner_id") != requester_id:
+            return False
+
+        await self.db.rooms.delete_one({"id": room_id})
+        await self.db.room_members.delete_many({"room_id": room_id})
+        await self.db.messages.delete_many({"room_id": room_id})
+        await self.db.tasks.delete_many({"room_id": room_id})
+        await self.db.room_goals.delete_many({"room_id": room_id})
+        await self.db.room_kb.delete_many({"room_id": room_id})
+        await self.db.documents.delete_many({"room_id": room_id})
+        await self.db.document_chunks.delete_many({"room_id": room_id})
+        return True
     
     async def get_room_members(self, room_id: str) -> List[RoomMemberOut]:
         """

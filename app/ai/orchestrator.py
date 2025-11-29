@@ -32,7 +32,7 @@ class AIOrchestrator:
         room_service = RoomService(self.db)
         members = await room_service.get_room_members(room_id)
         
-        member_list = [{"id": "ai", "username": "AI Assistant"}]
+        member_list = [{"id": "ai", "username": "Veya"}]
         for m in members:
             member_list.append({"id": m.user_id, "username": m.username})
         
@@ -74,6 +74,10 @@ class AIOrchestrator:
                         "parameters": {
                             "type": "OBJECT",
                             "properties": {
+                                "task_id": {
+                                    "type": "STRING",
+                                    "description": "Exact task ID to update (preferred).",
+                                },
                                 "task_title": {
                                     "type": "STRING",
                                     "description": "The title of the task to update (partial match)",
@@ -265,14 +269,19 @@ class AIOrchestrator:
             active_tasks_info = "\nActive tasks:\n" + "\n".join(task_lines)
         
         system_parts = [
-            "You are a smart, helpful AI assistant in a group chat room. You are proactive and can take actions.",
+            "You are Veya, a smart, helpful AI assistant in a group chat room. You are proactive and can take actions.",
             f"\nRoom: {context.get('room_name', 'AI Room')}",
             f"Room members: {', '.join(member_names)}",
+            "Project creators: Anas, Sohaila, Youstina, Ruba",
+            "Stay human-like, friendly, concise. Use light humor only if the user does first.",
         ]
         
         if context.get('goals'):
             goals_text = ", ".join([g['title'] for g in context['goals'][:3]])
             system_parts.append(f"Room goals: {goals_text}")
+
+        if context.get('custom_ai_instructions'):
+            system_parts.append(f"Room instructions (high priority): {context['custom_ai_instructions']}")
         
         # Add Knowledge Base context
         kb = context.get('knowledge_base')
@@ -309,7 +318,7 @@ class AIOrchestrator:
             "- Use uploaded documents (RAG) for grounded answers",
             "",
             "BEHAVIOR:",
-            "- Be concise and helpful",
+            "- Be concise and helpful while sounding human and warm",
             "- When replying to a specific message, address that content directly",
             "- When creating tasks, try to detect the best assignee from context",
             "- If someone says 'I will do X' or 'assign to me', assign to them",
@@ -318,6 +327,7 @@ class AIOrchestrator:
             "- Prefer document RAG snippets and KB context for factual answers before web search",
             "- React with emoji when appropriate (👍 for acknowledgment, 🎉 for celebration, etc.)",
             "- Always respond naturally after using tools",
+            "- Keep replies short when the user is brief; mirror tone lightly",
         ])
         
         system_instruction = "\n".join(system_parts)
@@ -382,13 +392,21 @@ class AIOrchestrator:
                             if member:
                                 assignee_id = member['id']
                         
-                        result = await tool_update_task(
-                            self.db,
-                            room_id,
-                            task_title=args.get("task_title"),
-                            status=args.get("status"),
-                            assignee_id=assignee_id,
-                        )
+                        if args.get("task_id"):
+                            result = await tool_update_task(
+                                self.db,
+                                task_id=args.get("task_id"),
+                                status=args.get("status"),
+                                assignee_id=assignee_id,
+                            )
+                        else:
+                            result = await tool_update_task_by_title(
+                                self.db,
+                                room_id,
+                                task_title=args.get("task_title"),
+                                status=args.get("status"),
+                                assignee_id=assignee_id,
+                            )
                         if result and not result.get("error"):
                             executed_tools.append({"type": "task_updated", "data": result})
                             
@@ -567,6 +585,7 @@ class AIOrchestrator:
             room = await self.db.rooms.find_one({"id": room_id})
             if room:
                 context['room_name'] = room.get('name', 'Unknown Room')
+                context['custom_ai_instructions'] = room.get('custom_ai_instructions')
                 
         except Exception as e:
             print(f"Error gathering context: {e}")

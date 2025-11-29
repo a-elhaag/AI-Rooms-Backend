@@ -11,6 +11,7 @@ class RoomCreate(BaseModel):
     """Schema for room creation request."""
     
     name: str = Field(..., min_length=1, max_length=100)
+    custom_ai_instructions: Optional[str] = None
 
 
 class RoomJoin(BaseModel):
@@ -31,6 +32,7 @@ class RoomOut(BaseModel):
     message_count: int = 0
     has_ai: bool = True
     description: Optional[str] = None
+    custom_ai_instructions: Optional[str] = None
     
     class Config:
         from_attributes = True

@@ -4,8 +4,9 @@ Authentication service - Simplified for POC (no JWT, basic auth only).
 from datetime import datetime
 from typing import Optional
 
-from app.schemas.auth import UserLogin, UserOut, UserRegister
-from app.utils.security import verify_password, get_password_hash
+from app.schemas.auth import (PasswordChange, ProfileUpdate, UserLogin,
+                              UserOut, UserRegister)
+from app.utils.security import get_password_hash, verify_password
 from bson import ObjectId
 from fastapi import HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -132,3 +133,99 @@ class AuthService:
             Optional[dict]: User document or None
         """
         return await self.collection.find_one({"username": username})
+
+    async def update_profile(self, user_id: str, profile_data: ProfileUpdate) -> UserOut:
+        """
+        Update user profile information.
+        
+        Args:
+            user_id: User ID
+            profile_data: Profile update data
+            
+        Returns:
+            UserOut: Updated user information
+        """
+        try:
+            user = await self.collection.find_one({"_id": ObjectId(user_id)})
+        except:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        update_data = {}
+        
+        if profile_data.username is not None:
+            # Check if new username already exists
+            if profile_data.username != user["username"]:
+                existing = await self.collection.find_one({"username": profile_data.username})
+                if existing:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Username already exists"
+                    )
+            update_data["username"] = profile_data.username
+        
+        if profile_data.preferred_language is not None:
+            update_data["preferred_language"] = profile_data.preferred_language
+        
+        if update_data:
+            update_data["updated_at"] = datetime.utcnow()
+            await self.collection.update_one(
+                {"_id": ObjectId(user_id)},
+                {"$set": update_data}
+            )
+        
+        # Return updated user
+        updated_user = await self.collection.find_one({"_id": ObjectId(user_id)})
+        return UserOut(
+            id=str(updated_user["_id"]),
+            username=updated_user["username"],
+            preferred_language=updated_user.get("preferred_language", "en"),
+            created_at=updated_user["created_at"].isoformat() if isinstance(updated_user["created_at"], datetime) else updated_user["created_at"],
+        )
+
+    async def change_password(self, user_id: str, password_data: PasswordChange) -> None:
+        """
+        Change user password.
+        
+        Args:
+            user_id: User ID
+            password_data: Current and new password
+        """
+        try:
+            user = await self.collection.find_one({"_id": ObjectId(user_id)})
+        except:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Verify current password
+        if not verify_password(password_data.current_password, user["password"]):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect"
+            )
+        
+        # Update password
+        hashed_password = get_password_hash(password_data.new_password)
+        await self.collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {
+                "password": hashed_password,
+                "updated_at": datetime.utcnow()
+            }}
+        )
