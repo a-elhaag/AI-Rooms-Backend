@@ -110,6 +110,8 @@ class ShouldRespondClassifier:
             # Default to responding if no API key
             return True
 
+
+## dont remove this
         prompt = f"""You are analyzing a message in a group chat to decide if the AI assistant should respond.
 
 Message: "{content}"
