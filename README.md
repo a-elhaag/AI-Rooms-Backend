@@ -1,5 +1,7 @@
 # AI Rooms Backend
 
+## Made by Anas, Youstina, Sohaila, and Ruba
+
 AI-powered multi-room chat and task management system built with FastAPI, MongoDB, and LangChain.
 
 ## 🚀 Quick Start
