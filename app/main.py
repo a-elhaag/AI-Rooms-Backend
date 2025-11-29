@@ -1,12 +1,23 @@
 import logging
 from contextlib import asynccontextmanager
 
-from app.config import get_settings
-from app.db import close_mongo_connection, connect_to_mongo
-from app.routers import (ai, auth, documents, goals, kb, messages, profiles,
-                         rooms, tasks, ws)
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from app.config import get_settings
+from app.db import close_mongo_connection, connect_to_mongo
+from app.routers import (
+    ai,
+    auth,
+    documents,
+    goals,
+    kb,
+    messages,
+    profiles,
+    rooms,
+    tasks,
+    ws,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -44,10 +55,12 @@ app = FastAPI(
 
 # Configure CORS
 settings = get_settings()
-cors_origins = settings.CORS_ORIGINS.split(",") if isinstance(settings.CORS_ORIGINS, str) else settings.CORS_ORIGINS
+# Allow all origins for development / testing. To restrict origins in production,
+# replace the following with:
+# cors_origins = [o.strip() for o in settings.CORS_ORIGINS.split(',') if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
