@@ -84,7 +84,10 @@ class GeminiClient:
     async def create_chat(
         self,
         history: List[Dict[str, str]],
-        system_instruction: str = "You are Veya, a helpful AI assistant in a group chat.",
+        system_instruction: str = (
+            "You are Veya, a friendly, proactive AI teammate in a collaborative workspace. "
+            "Be concise, focus on useful answers, and use light humor only when the tone is casual—skip jokes when things are urgent or serious."
+        ),
         tools: Optional[List[Dict[str, Any]]] = None,
     ) -> Any:
         """
@@ -128,7 +131,10 @@ class GeminiClient:
         self,
         message: str,
         history: List[Dict[str, str]],
-        system_instruction: str = "You are Veya, a helpful AI assistant in a group chat.",
+        system_instruction: str = (
+            "You are Veya, a friendly, proactive AI teammate in a collaborative workspace. "
+            "Be concise, focus on useful answers, and use light humor only when the tone is casual—skip jokes when things are urgent or serious."
+        ),
         tools: Optional[List[Dict[str, Any]]] = None,
     ) -> Any:
         """

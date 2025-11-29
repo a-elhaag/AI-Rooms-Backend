@@ -49,14 +49,14 @@ async def handle_slash_command(
     Returns:
         Command result or None if not a valid command
     """
-    from app.ai.orchestrator import AIOrchestrator
+    from app.ai.ai_coordinator import AICoordinator
     from app.services.message_service import MessageService
     
     parts = content.split(' ', 1)
     command = parts[0].lower()
     args = parts[1] if len(parts) > 1 else ''
     
-    orchestrator = AIOrchestrator(db)
+    coordinator = AICoordinator(db)
     message_service = MessageService(db)
     
     result_content = None
@@ -72,7 +72,7 @@ async def handle_slash_command(
 • `/help` - Show this help message
 
 **Mentions:**
-• `@ai` or `@assistant` - Directly mention the AI to get a response
+• `@ai`, `@assistant`, or `@veya` - Directly mention the AI to get a response
 • `@username` - Mention a room member"""
     
     elif command == '/ask':
@@ -106,8 +106,8 @@ async def handle_slash_command(
         else:
             target_lang = translate_parts[0]
             text_to_translate = translate_parts[1]
-            # Use orchestrator's translate tool
-            result = await orchestrator.handle_message(
+            # Use coordinator's translate tool
+            result = await coordinator.handle_message(
                 room_id=room_id,
                 user_id=user_id,
                 content=f"Translate this to {target_lang}: {text_to_translate}",
@@ -130,7 +130,7 @@ async def handle_slash_command(
             message_texts = [f"{m.sender_name or 'User'}: {m.content}" for m in reversed(messages)]
             messages_str = "\n".join(message_texts)
             
-            result = await orchestrator.handle_message(
+            result = await coordinator.handle_message(
                 room_id=room_id,
                 user_id=user_id,
                 content=f"Summarize this conversation:\n{messages_str}",
@@ -142,7 +142,7 @@ async def handle_slash_command(
         if not args.strip():
             result_content = "**Usage:** `/search [query]`\nExample: `/search latest Python features`"
         else:
-            result = await orchestrator.handle_message(
+            result = await coordinator.handle_message(
                 room_id=room_id,
                 user_id=user_id,
                 content=f"Search the web for: {args}",
@@ -408,7 +408,10 @@ async def websocket_endpoint(
                     
                     # Check for @ mentions
                     mentions = parse_mentions(content)
-                    ai_mentioned = any(m.lower() in ['ai', 'assistant', 'bot'] for m in mentions)
+                    ai_mentioned = any(m.lower() in ['ai', 'assistant', 'bot', 'veya'] for m in mentions)
+                    # Also respond if the AI name is written without @
+                    if not ai_mentioned:
+                        ai_mentioned = bool(re.search(r'\bveya\b', content, flags=re.IGNORECASE))
                     
                     # Check if replying to an AI message
                     reply_to_ai = False
@@ -422,18 +425,18 @@ async def websocket_endpoint(
                     print(f"[AI DEBUG] Message: {content[:50]}... | @mentions: {mentions} | AI mentioned: {ai_mentioned} | Reply to AI: {reply_to_ai}")
                     
                     # Check if AI should respond
+                    from app.ai.ai_coordinator import AICoordinator
                     from app.ai.classifier import ShouldRespondClassifier
-                    from app.ai.orchestrator import AIOrchestrator
 
                     # Force AI response if explicitly mentioned or replying to AI
                     should_respond = ai_mentioned or reply_to_ai
                     
                     if not should_respond:
                         classifier = ShouldRespondClassifier()
-                        orchestrator = AIOrchestrator(db)
+                        coordinator = AICoordinator(db)
                         
                         # Gather context for decision
-                        context = await orchestrator.gather_room_context(room_id)
+                        context = await coordinator.gather_room_context(room_id)
                         
                         # Decide if AI should respond
                         should_respond = await classifier.should_respond(
@@ -444,13 +447,13 @@ async def websocket_endpoint(
                         )
                         print(f"[AI DEBUG] Classifier decision: {should_respond}")
                     else:
-                        orchestrator = AIOrchestrator(db)
+                        coordinator = AICoordinator(db)
                         print(f"[AI DEBUG] AI mentioned directly or replied to, will respond")
                     
                     if should_respond:
                         print(f"[AI DEBUG] Getting AI response for: {content[:50]}...")
-                        # Get AI response
-                        ai_result = await orchestrator.handle_message(
+                        # Get AI response using the new separated architecture
+                        ai_result = await coordinator.handle_message(
                             room_id=room_id,
                             user_id=user_id,
                             content=content,

@@ -21,8 +21,10 @@ class ShouldRespondClassifier:
             r'\b(hey\s+)?ai\b',
             r'\b(hey\s+)?assistant\b',
             r'\b(hey\s+)?bot\b',
+            r'\b(hey\s+)?veya\b',
             r'@ai',
             r'@assistant',
+            r'@veya',
         ]
         
         self.question_patterns = [
@@ -94,6 +96,13 @@ class ShouldRespondClassifier:
             Optional[bool]: True/False if rule matches, None if unclear
         """
         content_lower = content.lower()
+        mentions = re.findall(r'@(\w+)', content_lower)
+        ai_aliases = {'ai', 'assistant', 'bot', 'veya'}
+
+        # If the message is directly @mentioning someone else and not the AI, don't butt in
+        if mentions:
+            if not any(m in ai_aliases for m in mentions):
+                return False
         
         # Strong positive signals
         for pattern in self.ai_triggers:
@@ -108,9 +117,11 @@ class ShouldRespondClassifier:
         # Questions that likely need AI
         for pattern in self.question_patterns:
             if re.search(pattern, content_lower):
-                # Check if it's a question (ends with ?)
-                if '?' in content:
-                    return True
+                return True
+
+        # Any question mark is a strong hint
+        if '?' in content:
+            return True
         
         # Greetings directed at AI
         if re.match(r'^(hi|hello|hey)\s+(ai|assistant|bot)', content_lower):
@@ -119,10 +130,6 @@ class ShouldRespondClassifier:
         # Commands
         if content_lower.startswith(('/ai', '/help', '/summarize', '/translate')):
             return True
-        
-        # If very short message (< 3 words) and no clear trigger, don't respond
-        if len(content.split()) < 3:
-            return False
         
         # Unclear - let LLM decide
         return None
@@ -157,6 +164,9 @@ Should the AI respond to this message? Consider:
 - Does it ask a question that needs assistance?
 - Does it request an action (create task, search, translate, etc.)?
 - Is it general conversation between humans where AI shouldn't interrupt?
+ - If a message @mentions a specific human (e.g., "@alice are you free?"), DO NOT respond unless the AI is also mentioned.
+
+If unsure, lean toward YES so the AI stays responsive.
 
 Respond with ONLY 'YES' or 'NO'."""
 
@@ -168,5 +178,5 @@ Respond with ONLY 'YES' or 'NO'."""
             return 'yes' in response.lower().strip()
         except Exception as e:
             print(f"Classifier LLM error: {e}")
-            # Default to not responding if error
+            # Default to not responding if the classifier fails to avoid noise
             return False

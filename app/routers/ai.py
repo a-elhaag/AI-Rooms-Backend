@@ -219,7 +219,7 @@ async def chat_with_ai(
     Returns:
         ChatResponse: AI response
     """
-    from app.ai.orchestrator import AIOrchestrator
+    from app.ai.ai_coordinator import AICoordinator
 
     # Verify user is a member of the room
     room_service = RoomService(db)
@@ -229,9 +229,9 @@ async def chat_with_ai(
             detail="You are not a member of this room"
         )
     
-    # Handle with AI orchestrator
-    orchestrator = AIOrchestrator(db)
-    result = await orchestrator.handle_message(
+    # Handle with AI coordinator (separated LLM architecture)
+    coordinator = AICoordinator(db)
+    result = await coordinator.handle_message(
         room_id=request.room_id,
         user_id=current_user_id,
         content=request.message,
