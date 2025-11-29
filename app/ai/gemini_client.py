@@ -84,7 +84,7 @@ class GeminiClient:
     async def create_chat(
         self,
         history: List[Dict[str, str]],
-        system_instruction: str = "You are a helpful AI assistant in a group chat.",
+        system_instruction: str = "You are Veya, a helpful AI assistant in a group chat.",
         tools: Optional[List[Dict[str, Any]]] = None,
     ) -> Any:
         """
@@ -128,7 +128,7 @@ class GeminiClient:
         self,
         message: str,
         history: List[Dict[str, str]],
-        system_instruction: str = "You are a helpful AI assistant in a group chat.",
+        system_instruction: str = "You are Veya, a helpful AI assistant in a group chat.",
         tools: Optional[List[Dict[str, Any]]] = None,
     ) -> Any:
         """

@@ -21,7 +21,7 @@ class MessageOut(BaseModel):
     id: str
     room_id: str
     sender_id: Optional[str] = None  # User ID or 'ai'
-    sender_name: Optional[str] = None  # Username or 'AI Assistant'
+    sender_name: Optional[str] = None  # Username or 'Veya'
     sender_type: Literal["user", "ai", "system"] = "user"
     content: str
     reply_to: Optional[str] = None  # Message ID this is replying to

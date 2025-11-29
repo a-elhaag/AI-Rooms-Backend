@@ -41,7 +41,7 @@ class MessageService:
         from bson import ObjectId
 
         # Fetch username from database
-        sender_name = "AI Assistant"
+        sender_name = "Veya"
         sender_id = user_id or "ai"
         
         if user_id and user_id != "ai_assistant":

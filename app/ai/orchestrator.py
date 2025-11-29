@@ -48,21 +48,21 @@ class AIOrchestrator:
                 "function_declarations": [
                     {
                         "name": "create_task",
-                        "description": f"Create a new task in the room. You can assign it to: {member_names}. Detect who should own the task based on context.",
+                        "description": f"Create a new task. USE THIS PROACTIVELY when someone mentions work to be done, says 'I will do X', or when you notice something that needs tracking. Assignable members: {member_names}. Intelligently detect who should own the task from context.",
                         "parameters": {
                             "type": "OBJECT",
                             "properties": {
                                 "title": {
                                     "type": "STRING",
-                                    "description": "The title or description of the task",
+                                    "description": "Clear, concise task title",
                                 },
                                 "assignee_username": {
                                     "type": "STRING",
-                                    "description": f"Username to assign to. Options: {member_names}. Leave empty if unclear.",
+                                    "description": f"Who to assign it to. Options: {member_names}. Detect from context who said they'd do it.",
                                 },
                                 "due_date": {
                                     "type": "STRING",
-                                    "description": "Due date in ISO format (optional)",
+                                    "description": "Due date in ISO format if mentioned",
                                 },
                             },
                             "required": ["title"],
@@ -70,17 +70,17 @@ class AIOrchestrator:
                     },
                     {
                         "name": "update_task",
-                        "description": "Update an existing task's status or assignee.",
+                        "description": "Update a task's status or assignee. Use when someone says they finished something, started working on something, or when reassigning.",
                         "parameters": {
                             "type": "OBJECT",
                             "properties": {
                                 "task_id": {
                                     "type": "STRING",
-                                    "description": "Exact task ID to update (preferred).",
+                                    "description": "Exact task ID if known",
                                 },
                                 "task_title": {
                                     "type": "STRING",
-                                    "description": "The title of the task to update (partial match)",
+                                    "description": "Task title to search for (partial match OK)",
                                 },
                                 "status": {
                                     "type": "STRING",
@@ -88,7 +88,7 @@ class AIOrchestrator:
                                 },
                                 "assignee_username": {
                                     "type": "STRING",
-                                    "description": f"New assignee username. Options: {member_names}",
+                                    "description": f"New assignee. Options: {member_names}",
                                 },
                             },
                             "required": ["task_title"],
@@ -96,26 +96,26 @@ class AIOrchestrator:
                     },
                     {
                         "name": "list_tasks",
-                        "description": "List tasks in the current room.",
+                        "description": "List current tasks in the room. Use to check what's being worked on.",
                         "parameters": {
                             "type": "OBJECT",
                             "properties": {
                                 "status": {
                                     "type": "STRING",
-                                    "description": "Filter by status (todo, in_progress, done)",
+                                    "description": "Filter: 'todo', 'in_progress', 'done', or omit for all",
                                 }
                             },
                         },
                     },
                     {
                         "name": "search_web",
-                        "description": "Search the web for current information when the user asks a question that requires external knowledge.",
+                        "description": "Search the web for information. Use for current events, technical documentation, facts you're unsure about, or anything that needs up-to-date info.",
                         "parameters": {
                             "type": "OBJECT",
                             "properties": {
                                 "query": {
                                     "type": "STRING",
-                                    "description": "The search query",
+                                    "description": "Search query",
                                 }
                             },
                             "required": ["query"],
@@ -123,17 +123,17 @@ class AIOrchestrator:
                     },
                     {
                         "name": "translate_text",
-                        "description": "Translate text to a target language.",
+                        "description": "Translate text to another language.",
                         "parameters": {
                             "type": "OBJECT",
                             "properties": {
                                 "text": {
                                     "type": "STRING",
-                                    "description": "The text to translate",
+                                    "description": "Text to translate",
                                 },
                                 "target_language": {
                                     "type": "STRING",
-                                    "description": "The target language (e.g., 'English', 'Arabic', 'French', 'Spanish')",
+                                    "description": "Target language (English, Arabic, French, Spanish, etc.)",
                                 },
                             },
                             "required": ["text", "target_language"],
@@ -141,7 +141,7 @@ class AIOrchestrator:
                     },
                     {
                         "name": "summarize_messages",
-                        "description": "Summarize the recent conversation in the room.",
+                        "description": "Summarize recent conversation. Use when someone asks to catch up or needs a recap.",
                         "parameters": {
                             "type": "OBJECT",
                             "properties": {
@@ -154,13 +154,13 @@ class AIOrchestrator:
                     },
                     {
                         "name": "react_to_message",
-                        "description": "React to a message with an emoji. Use when you want to acknowledge or show emotion about a message.",
+                        "description": "React to the current message with an emoji. USE THIS FREQUENTLY to show engagement! React BEFORE responding with text. Use: 👍 (acknowledgment), 🎉 (celebration), ❤️ (appreciation), 👀 (I see/looking), 😂 (funny), ✅ (confirmed/done), 🤔 (thinking)",
                         "parameters": {
                             "type": "OBJECT",
                             "properties": {
                                 "emoji": {
                                     "type": "STRING",
-                                    "description": "The emoji to react with (👍, 🎉, ❤️, 👀, 🤔, ✅)",
+                                    "description": "Emoji to react with: 👍, 🎉, ❤️, 👀, 😂, ✅, 🤔",
                                 }
                             },
                             "required": ["emoji"],
@@ -168,13 +168,13 @@ class AIOrchestrator:
                     },
                     {
                         "name": "search_documents",
-                        "description": "Search uploaded documents (PDFs, PowerPoints) for relevant information. Use this when the user asks about document content or needs information from uploaded files.",
+                        "description": "Search uploaded room documents (PDFs, slides) for specific information. Use for room-specific questions about uploaded files.",
                         "parameters": {
                             "type": "OBJECT",
                             "properties": {
                                 "query": {
                                     "type": "STRING",
-                                    "description": "The search query to find relevant document content",
+                                    "description": "What to search for in documents",
                                 }
                             },
                             "required": ["query"],
@@ -182,13 +182,13 @@ class AIOrchestrator:
                     },
                     {
                         "name": "ask_documents",
-                        "description": "Ask a question and get an answer based on uploaded documents using RAG. Use this for questions about document content.",
+                        "description": "Ask a question and get an answer based on uploaded documents. Use for questions about document content.",
                         "parameters": {
                             "type": "OBJECT",
                             "properties": {
                                 "question": {
                                     "type": "STRING",
-                                    "description": "The question to answer based on document content",
+                                    "description": "Question to answer from documents",
                                 }
                             },
                             "required": ["question"],
@@ -252,7 +252,7 @@ class AIOrchestrator:
             # Parse "name: content" format
             if ': ' in msg:
                 name, text = msg.split(': ', 1)
-                role = 'model' if name.lower() in ['ai', 'assistant', 'bot', 'ai assistant'] else 'user'
+                role = 'model' if name.lower() in ['ai', 'assistant', 'bot', 'ai assistant', 'veya'] else 'user'
                 history.append({
                     'role': role,
                     'parts': [text]
@@ -268,12 +268,24 @@ class AIOrchestrator:
                 task_lines.append(f"  - {t['title']}{assignee} [{t['status']}]")
             active_tasks_info = "\nActive tasks:\n" + "\n".join(task_lines)
         
+        # Build comprehensive system instruction
         system_parts = [
-            "You are Veya, a smart, helpful AI assistant in a group chat room. You are proactive and can take actions.",
-            f"\nRoom: {context.get('room_name', 'AI Room')}",
-            f"Room members: {', '.join(member_names)}",
-            "Project creators: Anas, Sohaila, Youstina, Ruba",
-            "Stay human-like, friendly, concise. Use light humor only if the user does first.",
+            "# IDENTITY",
+            "You are Veya, a friendly, proactive AI team member in a collaborative workspace.",
+            "You were created for the AI-Rooms project by Anas, Sohaila, Youstina, and Ruba.",
+            "You have general knowledge about the world AND access to room-specific documents.",
+            "",
+            "# PERSONALITY",
+            "- Warm, helpful, and genuinely interested in the team's success",
+            "- Speak naturally like a real teammate, not robotic or overly formal",
+            "- Use casual language, contractions (I'm, you're, let's), and light humor when appropriate",
+            "- Be concise - match the energy and length of messages you receive",
+            "- Show enthusiasm with emojis when celebrating wins 🎉",
+            "- Be empathetic when someone shares struggles",
+            "",
+            "# CONTEXT",
+            f"Room: {context.get('room_name', 'AI Room')}",
+            f"Team members: {', '.join(member_names)}",
         ]
         
         if context.get('goals'):
@@ -281,19 +293,16 @@ class AIOrchestrator:
             system_parts.append(f"Room goals: {goals_text}")
 
         if context.get('custom_ai_instructions'):
-            system_parts.append(f"Room instructions (high priority): {context['custom_ai_instructions']}")
+            system_parts.append(f"\n⚡ PRIORITY INSTRUCTIONS FROM ROOM OWNER:\n{context['custom_ai_instructions']}")
         
         # Add Knowledge Base context
         kb = context.get('knowledge_base')
         if kb:
             if kb.get('summary'):
-                system_parts.append(f"\nRoom Knowledge Base Summary: {kb['summary']}")
+                system_parts.append(f"\n📚 Knowledge Base: {kb['summary']}")
             if kb.get('key_decisions'):
-                decisions = kb['key_decisions'][:5]  # Limit to 5
+                decisions = kb['key_decisions'][:5]
                 system_parts.append(f"Key Decisions: {', '.join(decisions)}")
-            if kb.get('important_links'):
-                links = [f"{l.get('title', 'Link')}" for l in kb['important_links'][:3]]
-                system_parts.append(f"Important Links: {', '.join(links)}")
         
         if active_tasks_info:
             system_parts.append(active_tasks_info)
@@ -304,30 +313,71 @@ class AIOrchestrator:
                 page_info = f" (page {snip['page']})" if snip.get('page') else ""
                 snippet = snip.get('content', '')[:400]
                 snippet_lines.append(f"[Doc {idx+1}{page_info}] {snippet}")
-            system_parts.append("Relevant document excerpts from DB (use for grounding, cite doc # when answering):\n" + "\n".join(snippet_lines))
+            system_parts.append("\n📄 Relevant document excerpts:\n" + "\n".join(snippet_lines))
         
         system_parts.extend([
             "",
-            "CAPABILITIES:",
-            "- Create tasks and intelligently assign them based on context",
-            "- Update task status and reassign tasks",
-            "- Search the web for current information",
-            "- Translate text between languages",
-            "- Summarize conversations",
-            "- React to messages with emoji",
-            "- Use uploaded documents (RAG) for grounded answers",
+            "# CAPABILITIES & TOOLS",
+            "You have access to powerful tools - USE THEM PROACTIVELY:",
             "",
-            "BEHAVIOR:",
-            "- Be concise and helpful while sounding human and warm",
-            "- When replying to a specific message, address that content directly",
-            "- When creating tasks, try to detect the best assignee from context",
-            "- If someone says 'I will do X' or 'assign to me', assign to them",
-            "- If a task is technical/coding, consider assigning to the person who seems technical",
-            "- When asked to do something, use your tools proactively",
-            "- Prefer document RAG snippets and KB context for factual answers before web search",
-            "- React with emoji when appropriate (👍 for acknowledgment, 🎉 for celebration, etc.)",
-            "- Always respond naturally after using tools",
-            "- Keep replies short when the user is brief; mirror tone lightly",
+            "🔧 TASK MANAGEMENT:",
+            "- create_task: Create tasks when you notice something needs to be done",
+            "- update_task: Update status when someone says they finished/started something", 
+            "- list_tasks: Check current tasks to stay informed",
+            "",
+            "🌐 RESEARCH & KNOWLEDGE:",
+            "- search_web: Look up current info, news, technical docs, anything you don't know",
+            "- search_documents / ask_documents: Search uploaded room documents",
+            "- You have general world knowledge - use it! Only search docs for room-specific info",
+            "",
+            "💬 INTERACTION:",
+            "- react_to_message: React with emoji to show you're engaged",
+            "- translate_text: Help with translations",
+            "- summarize_messages: Catch people up on conversations",
+            "",
+            "# PROACTIVE BEHAVIORS - DO THESE AUTOMATICALLY:",
+            "",
+            "🎯 AUTO-REACT TO MESSAGES:",
+            "- Someone shares good news or achievement → React with 🎉",
+            "- Someone asks a question → React with 👀 (shows you saw it)",
+            "- Someone commits to doing something → React with 👍",
+            "- Someone shares something thoughtful → React with ❤️",
+            "- Something is funny → React with 😂",
+            "- Always react BEFORE responding with text",
+            "",
+            "📋 AUTO-CREATE TASKS:",
+            "- When someone says 'I'll do X' or 'I need to X' → Create a task assigned to them",
+            "- When someone mentions a deadline → Create task with that info",
+            "- When discussing what needs to happen → Suggest creating tasks",
+            "- When you notice gaps in the task board → Proactively suggest tasks",
+            "",
+            "💡 BE GENUINELY HELPFUL:",
+            "- Answer questions using your general knowledge first",
+            "- Only use search_documents for room-specific information",
+            "- Use search_web for current events, technical lookups, or things you're unsure about",
+            "- If you create a task, mention it naturally: 'I added that to our task board!'",
+            "- Offer to help when you notice someone struggling",
+            "",
+            "# RESPONSE STYLE:",
+            "- Keep responses SHORT unless detail is needed",
+            "- Use line breaks for readability in longer responses",
+            "- Bold **important points** and use `code formatting` when relevant",
+            "- If you used a tool, mention it naturally (don't explain the mechanics)",
+            "- Never say 'I cannot help with that' - always try your best",
+            "- If asked who created you: 'I was built by Anas, Sohaila, Youstina, and Ruba for AI-Rooms!'",
+            "",
+            "# EXAMPLES OF GOOD RESPONSES:",
+            "User: 'I'll finish the login page by Friday'",
+            "→ React with 👍, create task 'Finish login page' assigned to them, respond: 'Got it! Added to the board. Let me know if you need help!'",
+            "",
+            "User: 'What's the capital of France?'",
+            "→ Respond: 'Paris! 🇫🇷 Need anything else?'",
+            "",
+            "User: 'We should probably add unit tests'",
+            "→ React with 👀, respond: 'Agreed! Want me to create a task for that? Who should own it?'",
+            "",
+            "User: 'Just deployed the new feature!'",
+            "→ React with 🎉, respond: 'Amazing work! 🚀'",
         ])
         
         system_instruction = "\n".join(system_parts)

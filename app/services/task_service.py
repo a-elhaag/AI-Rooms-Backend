@@ -3,12 +3,11 @@ Task service for task management.
 """
 import uuid
 from datetime import datetime
-from typing import Optional, List
-
-from motor.motor_asyncio import AsyncIOMotorDatabase
-from bson import ObjectId
+from typing import List, Optional
 
 from app.schemas.task import TaskCreate, TaskOut, TaskUpdate
+from bson import ObjectId
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 
 class TaskService:
@@ -55,7 +54,7 @@ class TaskService:
         assignee_name = None
         if task_data.assignee_id:
             if task_data.assignee_id == "ai":
-                assignee_name = "AI"
+                assignee_name = "Veya"
             else:
                 try:
                     user = await self.db.users.find_one({"_id": ObjectId(task_data.assignee_id)})
@@ -92,7 +91,7 @@ class TaskService:
             assignee_name = None
             if doc.get("assignee_id"):
                 if doc["assignee_id"] == "ai":
-                    assignee_name = "AI"
+                    assignee_name = "Veya"
                 else:
                     # In a real app with many tasks, we would use $lookup aggregation
                     try:
@@ -151,7 +150,7 @@ class TaskService:
         assignee_name = None
         if result.get("assignee_id"):
             if result["assignee_id"] == "ai":
-                assignee_name = "AI"
+                assignee_name = "Veya"
             else:
                 try:
                     user = await self.db.users.find_one({"_id": ObjectId(result["assignee_id"])})
@@ -190,7 +189,7 @@ class TaskService:
         assignee_name = None
         if doc.get("assignee_id"):
             if doc["assignee_id"] == "ai":
-                assignee_name = "AI"
+                assignee_name = "Veya"
             else:
                 try:
                     user = await self.db.users.find_one({"_id": ObjectId(doc["assignee_id"])})
