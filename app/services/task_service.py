@@ -209,3 +209,16 @@ class TaskService:
             due_date=doc.get("due_date").isoformat() if doc.get("due_date") else None,
             created_at=doc["created_at"].isoformat() if isinstance(doc["created_at"], datetime) else doc["created_at"]
         )
+
+    async def delete_task(self, task_id: str) -> bool:
+        """
+        Delete a task by ID.
+
+        Args:
+            task_id: Task ID
+
+        Returns:
+            bool: True if deleted
+        """
+        result = await self.collection.delete_one({"id": task_id})
+        return result.deleted_count > 0

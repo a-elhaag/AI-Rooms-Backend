@@ -332,3 +332,27 @@ class KBService:
             resources=resources,
             last_updated=result["updated_at"].isoformat() if isinstance(result["updated_at"], datetime) else result["updated_at"]
         )
+
+    async def remove_decision(self, room_id: str, decision: str) -> Optional[KBOut]:
+        await self.create_default_kb(room_id)
+        await self.collection.update_one(
+            {"room_id": room_id},
+            {"$pull": {"key_decisions": decision}, "$set": {"updated_at": datetime.utcnow()}},
+        )
+        return await self.get_room_kb(room_id)
+
+    async def remove_link_by_url(self, room_id: str, url: str) -> Optional[KBOut]:
+        await self.create_default_kb(room_id)
+        await self.collection.update_one(
+            {"room_id": room_id},
+            {"$pull": {"important_links": {"url": url}}, "$set": {"updated_at": datetime.utcnow()}},
+        )
+        return await self.get_room_kb(room_id)
+
+    async def remove_resource_by_url(self, room_id: str, url: str) -> Optional[KBOut]:
+        await self.create_default_kb(room_id)
+        await self.collection.update_one(
+            {"room_id": room_id},
+            {"$pull": {"resources": {"url": url}}, "$set": {"updated_at": datetime.utcnow()}},
+        )
+        return await self.get_room_kb(room_id)

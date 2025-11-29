@@ -199,3 +199,44 @@ async def update_task(
     })
     
     return updated_task
+
+
+@router.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_task(
+    task_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    current_user_id: str = Depends(get_current_user_id)
+) -> None:
+    """
+    Delete a task.
+    """
+    task_service = TaskService(db)
+
+    task = await task_service.get_task_by_id(task_id)
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+
+    room_service = RoomService(db)
+    if not await room_service.is_member(task.room_id, current_user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this room"
+        )
+
+    deleted = await task_service.delete_task(task_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+
+    from app.routers.ws import manager
+    await manager.broadcast_to_room(task.room_id, {
+        "type": "task_deleted",
+        "task_id": task_id,
+    })
+
+    return None

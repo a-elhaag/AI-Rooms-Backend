@@ -204,6 +204,28 @@ class AIOrchestrator:
                 return member
         return None
 
+    async def _get_document_snippets(self, room_id: str, query: str, limit: int = 4) -> list[dict]:
+        """Retrieve top document chunks from the DB for lightweight RAG context."""
+        try:
+            from app.services.rag_service import RAGService
+
+            rag_service = RAGService(self.db)
+            chunks = await rag_service.semantic_search(room_id, query or "", limit=limit)
+            snippets = []
+            for chunk in chunks:
+                snippets.append(
+                    {
+                        "content": chunk.get("content", ""),
+                        "page": chunk.get("page_number"),
+                        "document_id": chunk.get("document_id"),
+                        "similarity": chunk.get("similarity"),
+                    }
+                )
+            return snippets
+        except Exception as e:
+            print(f"[AI RAG] Failed to fetch document context: {e}")
+            return []
+
     async def handle_message(
         self, room_id: str, user_id: str, content: str, message_id: str,
         reply_to_content: Optional[str] = None
@@ -217,6 +239,7 @@ class AIOrchestrator:
         # 1. Gather room context and members
         context = await self.gather_room_context(room_id)
         room_members = await self._get_room_members(room_id)
+        doc_snippets = await self._get_document_snippets(room_id, content)
         
         # 2. Build conversation history from recent messages
         history = []
@@ -265,6 +288,14 @@ class AIOrchestrator:
         
         if active_tasks_info:
             system_parts.append(active_tasks_info)
+
+        if doc_snippets:
+            snippet_lines = []
+            for idx, snip in enumerate(doc_snippets):
+                page_info = f" (page {snip['page']})" if snip.get('page') else ""
+                snippet = snip.get('content', '')[:400]
+                snippet_lines.append(f"[Doc {idx+1}{page_info}] {snippet}")
+            system_parts.append("Relevant document excerpts from DB (use for grounding, cite doc # when answering):\n" + "\n".join(snippet_lines))
         
         system_parts.extend([
             "",
@@ -275,13 +306,16 @@ class AIOrchestrator:
             "- Translate text between languages",
             "- Summarize conversations",
             "- React to messages with emoji",
+            "- Use uploaded documents (RAG) for grounded answers",
             "",
             "BEHAVIOR:",
             "- Be concise and helpful",
+            "- When replying to a specific message, address that content directly",
             "- When creating tasks, try to detect the best assignee from context",
             "- If someone says 'I will do X' or 'assign to me', assign to them",
             "- If a task is technical/coding, consider assigning to the person who seems technical",
             "- When asked to do something, use your tools proactively",
+            "- Prefer document RAG snippets and KB context for factual answers before web search",
             "- React with emoji when appropriate (👍 for acknowledgment, 🎉 for celebration, etc.)",
             "- Always respond naturally after using tools",
         ])

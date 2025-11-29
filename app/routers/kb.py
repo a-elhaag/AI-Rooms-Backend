@@ -23,6 +23,11 @@ class DecisionInput(BaseModel):
     decision: str
 
 
+class KBRemoveInput(BaseModel):
+    item_type: str  # "decision" | "link" | "resource"
+    value: str      # decision text or URL to remove
+
+
 @router.get("/rooms/{room_id}/kb", response_model=KBOut)
 async def get_room_kb(
     room_id: str,
@@ -220,4 +225,50 @@ async def add_kb_resource(
             detail="Failed to add resource"
         )
     
+    return kb
+
+
+@router.post("/rooms/{room_id}/kb/remove", response_model=KBOut)
+async def remove_kb_item(
+    room_id: str,
+    data: KBRemoveInput,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Remove an item from the KB (decision, link, or resource) by value/url.
+    """
+    room_service = RoomService(db)
+    if not await room_service.is_member(room_id, user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this room"
+        )
+
+    service = KBService(db)
+    kb = None
+    if data.item_type == "decision":
+        kb = await service.remove_decision(room_id, data.value)
+    elif data.item_type == "link":
+        kb = await service.remove_link_by_url(room_id, data.value)
+    elif data.item_type == "resource":
+        kb = await service.remove_resource_by_url(room_id, data.value)
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid item_type. Use decision, link, or resource."
+        )
+
+    if not kb:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to remove KB item"
+        )
+
+    from app.routers.ws import manager
+    await manager.broadcast_to_room(room_id, {
+        "type": "kb_updated",
+        "kb": kb.model_dump()
+    })
+
     return kb
