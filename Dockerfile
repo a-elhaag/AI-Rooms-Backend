@@ -1,35 +1,44 @@
-# Use Python 3.11 slim image
 FROM python:3.11-slim
 
-# Set working directory
+# Working directory
 WORKDIR /app
 
-# Set environment variables
+# Environment
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
+    PYTHONPATH=/app \
+    PORT=8000
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
+# Install build dependencies, install Python deps, then remove build deps to keep image small
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gcc build-essential libssl-dev libffi-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
-COPY requirements.txt .
+# Copy requirements first for better layer caching
+COPY requirements.txt ./
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt \
+    && apt-get purge -y --auto-remove gcc build-essential libssl-dev libffi-dev \
+    && rm -rf /var/lib/apt/lists/* /root/.cache/pip
 
-# Copy application code
+# Copy application source
 COPY ./app ./app
 
-# Expose port
+# Create a non-root user and give ownership of /app
+RUN addgroup --system appgroup \
+    && adduser --system --ingroup appgroup appuser \
+    && chown -R appuser:appgroup /app
+
+# Expose application port
 EXPOSE 8000
 
-# Health check
+# Healthcheck uses the app's /health endpoint (requests is in requirements)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
+  CMD python -c "import requests, sys; r = requests.get('http://localhost:8000/health'); sys.exit(0 if r.status_code==200 else 1)"
 
-# Run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Switch to non-root user
+USER appuser
+
+# Run with a single worker by default; the platform can scale instances
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

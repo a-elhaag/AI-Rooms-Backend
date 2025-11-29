@@ -1,42 +1,55 @@
-# Python
+# Ignore Python build artifacts and caches
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-.Python
+pip-wheel-metadata/
+*.egg-info/
+
+# Virtual environments
+.venv/
 venv/
 env/
 ENV/
-.venv
 
-# IDEs
+# Distribution / build
+build/
+dist/
+
+# Tests and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+tests/
+
+# Git
+.git/
+.gitignore
+
+# IDEs and editors
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# Environment
+# Local environment / secrets
 .env
 .env.local
+*.pem
+*.key
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Git
-.git
-.gitignore
-
-# Documentation
-README.md
-*.md
-
-# Docker
-Dockerfile
+# Docker-compose / local dev files (keep Dockerfile in context)
 docker-compose.yml
 .dockerignore
+
+# Logs and local files
+*.log
+*.sqlite3
+tmp/
+
+# Node
+node_modules/
 
 # macOS
 .DS_Store
@@ -44,5 +57,5 @@ docker-compose.yml
 # Postman
 *.postman_collection.json
 
-# Shell scripts
-*.sh
+# Misc
+*.bak
