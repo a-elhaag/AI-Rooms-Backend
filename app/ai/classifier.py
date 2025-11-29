@@ -1,6 +1,3 @@
-"""
-Classifier to decide if AI should respond to a message.
-"""
 import re
 from typing import Optional
 
