@@ -211,8 +211,6 @@ async def tool_update_room_kb(
 
 
 # Search and Information Tools
-
-
 async def tool_web_search(query: str) -> list[dict]:
     """
     Perform web search and return results.

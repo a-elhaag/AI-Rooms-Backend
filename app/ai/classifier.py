@@ -6,6 +6,8 @@ from app.ai.gemini_client import gemini_client
 
 class ShouldRespondClassifier:
 
+    """Decides if the AI should respond to a chat message using rules and LLM."""
+
     def __init__(self):
         """Initialize classifier with rule patterns."""
         self.ai_triggers = [
