@@ -22,19 +22,6 @@ async def get_room_messages(
     db: AsyncIOMotorDatabase = Depends(get_database),
     current_user_id: str = Depends(get_current_user_id)
 ) -> list[MessageOut]:
-    """
-    Get messages from a room with pagination.
-    
-    Args:
-        room_id: Room ID
-        limit: Maximum number of messages to return
-        before: Message ID for cursor-based pagination
-        db: Database instance
-        current_user_id: Current user ID from header
-        
-    Returns:
-        list[MessageOut]: List of messages
-    """
     # Verify user is a member of the room
     room_service = RoomService(db)
     if not await room_service.is_member(room_id, current_user_id):
@@ -54,20 +41,6 @@ async def create_message(
     db: AsyncIOMotorDatabase = Depends(get_database),
     current_user_id: str = Depends(get_current_user_id)
 ) -> MessageOut:
-    """
-    Create a new message in a room.
-    
-    This endpoint will later trigger the AI pipeline.
-    
-    Args:
-        room_id: Room ID
-        message_data: Message content and type
-        db: Database instance
-        current_user_id: Current user ID from header
-        
-    Returns:
-        MessageOut: Created message information
-    """
     
     message_service = MessageService(db)
     return await message_service.create_message(room_id, message_data, current_user_id)
