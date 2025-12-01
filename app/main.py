@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    
     logger.info("Starting up AI Rooms API...")
     try:
         await connect_to_mongo()
