@@ -86,7 +86,7 @@ class ShouldRespondClassifier:
         if re.match(r"^(hi|hello|hey)\s+(ai|assistant|bot)", content_lower):
             return True
 
-        # Commands
+      
         if content_lower.startswith(("/ai", "/help", "/summarize", "/translate")):
             return True
 
