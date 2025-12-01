@@ -29,7 +29,7 @@ class GeminiClient:
         model: str = "gemini-2.5-flash-lite",
         system_instruction: Optional[str] = None,
     ) -> str:
-        """
+        """ ruba
         Generate a simple text response.
 
         Args:
@@ -49,15 +49,17 @@ class GeminiClient:
 
         try:
             response = self.client.models.generate_content(
-                model=model, contents=prompt, config=config
+                model=model,
+                contents=prompt,
+                config=config
             )
-            return response.text
+            return response.text if response.text else "No response generated."
         except Exception as e:
             print(f"Gemini API Error: {e}")
             return f"I'm sorry, I'm currently overloaded. Please try again in a moment. (Error: {str(e)})"
 
     async def search_web(self, query: str) -> str:
-        """
+        """ ruba
         Perform a web search using Gemini Grounding.
 
         Args:
@@ -69,6 +71,9 @@ class GeminiClient:
         if not self.client:
             return "Error: Google API Key not configured."
 
+        if not query or not query.strip():
+            return "Error: Search query cannot be empty."
+
         try:
             # Use Gemini 2.5 Flash Lite for search grounding
             response = self.client.models.generate_content(
@@ -76,7 +81,7 @@ class GeminiClient:
                 contents=query,
                 config={"tools": [{"google_search": {}}]},
             )
-            return response.text
+            return response.text if response.text else "No search results found."
         except Exception as e:
             print(f"Gemini Search Error: {e}")
             return f"I couldn't search the web right now. (Error: {str(e)})"
@@ -101,6 +106,9 @@ class GeminiClient:
         if not self.client:
             return None
 
+        if not history:
+            return None
+
         config = {"system_instruction": system_instruction}
         if tools:
             config["tools"] = tools
@@ -117,6 +125,9 @@ class GeminiClient:
                         types.Content(role=role, parts=[types.Part.from_text(text=text)])
                     )
             
+            if not formatted_history:
+                return None
+
             return self.client.chats.create(
                 model="gemini-2.5-flash-lite", config=config, history=formatted_history
             )
