@@ -17,7 +17,7 @@ router = APIRouter(prefix="/rooms/{room_id}/messages", tags=["Messages"])
 @router.get("", response_model=list[MessageOut])
 async def get_room_messages(
     room_id: str,
-    limit: int = Query(default=50, ge=1, le=100),
+    limit: int = Query(default=70, ge=2, le=120),
     before: Optional[str] = Query(default=None),
     db: AsyncIOMotorDatabase = Depends(get_database),
     current_user_id: str = Depends(get_current_user_id)
