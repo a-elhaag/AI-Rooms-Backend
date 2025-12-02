@@ -531,16 +531,28 @@ class AIOrchestrator:
             # Return final text response with tool execution info
             final_content = response.text if getattr(response, "text", None) else None
 
-            # If we only reacted, don't send a text message
-            if executed_tools and all(t.get("type") == "reaction" for t in executed_tools):
-                final_content = None
+            # If a reaction and a text are both present, send both
+            # If only a reaction, send only the reaction
+            # If only text, send only text
+            has_reaction = any(t.get("type") == "reaction" for t in executed_tools)
+            has_text = bool(final_content and final_content.strip())
 
-            return {
-                "action": "send_message", 
-                "content": final_content,
+            # Only send a response if there is a reaction, a text, or both
+            if not has_reaction and not has_text:
+                return {
+                    "action": "no_response",
+                    "tools_executed": executed_tools
+                }
+
+            result = {
+                "action": "send_message",
                 "tools_executed": executed_tools,
-                "reaction": reaction_emoji
             }
+            if has_text:
+                result["content"] = final_content
+            if has_reaction:
+                result["reaction"] = reaction_emoji
+            return result
 
         except Exception as e:
             print(f"Error processing AI response: {e}")

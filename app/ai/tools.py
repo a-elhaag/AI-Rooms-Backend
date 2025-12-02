@@ -85,9 +85,10 @@ async def tool_update_task(
     service = TaskService(db)
 
     task_data = TaskUpdate()
-    if status:
+    if status is not None:
         task_data.status = status
-    if assignee_id:
+    # Only update assignee if a new one is provided and not None
+    if assignee_id is not None:
         task_data.assignee_id = assignee_id
 
     result = await service.update_task(task_id, task_data)
@@ -132,8 +133,9 @@ async def tool_update_task_by_title(
         return {"error": f"Task '{task_title}' not found"}
     
     task_data = TaskUpdate()
-    if status:
+    if status is not None:
         task_data.status = status
+    # Only update assignee if a new one is provided and not None
     if assignee_id is not None:
         task_data.assignee_id = assignee_id
 
