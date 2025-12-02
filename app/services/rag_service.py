@@ -2,13 +2,13 @@
 RAG (Retrieval-Augmented Generation) service for document processing.
 Handles PDF and PowerPoint files with chunking, embedding, and semantic search.
 """
-import hashlib
 import io
-import os
+import math
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from app.ai.gemini_client import gemini_client
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
@@ -171,30 +171,15 @@ class RAGService:
     
     async def generate_embedding(self, text: str) -> List[float]:
         """
-        Generate embedding for text using Gemini.
+        Generate embedding for text using the centralized Gemini client.
         
         Args:
             text: Text to embed
             
         Returns:
-            Embedding vector
+            Embedding vector (768 dimensions)
         """
-        try:
-            from google import genai
-            
-            client = genai.Client()
-            
-            # Use text-embedding model
-            result = client.models.embed_content(
-                model="models/text-embedding-004",
-                contents=text[:8000]  # Limit text length
-            )
-            
-            return result.embeddings[0].values
-        except Exception as e:
-            print(f"Error generating embedding: {e}")
-            # Return a zero vector as fallback
-            return [0.0] * 768
+        return await gemini_client.generate_embedding(text)
     
     async def process_document(
         self,
@@ -302,25 +287,18 @@ class RAGService:
         )
     
     async def _generate_summary(self, text: str, filename: str) -> str:
-        """Generate a summary of the document."""
+        """Generate a summary of the document using the centralized Gemini client."""
+        if not gemini_client.is_configured():
+            return f"Document: {filename}"
+        
         try:
-            from google import genai
-            
-            client = genai.Client()
-            
             prompt = f"""Summarize this document titled "{filename}" in 2-3 sentences. 
             Focus on the main topic and key points.
             
             Document text:
             {text[:4000]}
             """
-            
-            response = client.models.generate_content(
-                model="gemini-2.0-flash-lite",
-                contents=prompt
-            )
-            
-            return response.text.strip()
+            return await gemini_client.generate_response(prompt)
         except Exception as e:
             print(f"Error generating summary: {e}")
             return f"Document: {filename}"
@@ -394,9 +372,7 @@ class RAGService:
     
     def _cosine_similarity(self, a: List[float], b: List[float]) -> float:
         """Calculate cosine similarity between two vectors."""
-        import math
-        
-        if len(a) != len(b):
+        if len(a) != len(b) or len(a) == 0:
             return 0.0
         
         dot_product = sum(x * y for x, y in zip(a, b))
@@ -439,12 +415,11 @@ class RAGService:
         
         context = "\n\n".join(context_parts)
         
-        # Generate answer using Gemini
+        # Generate answer using centralized Gemini client
+        if not gemini_client.is_configured():
+            return "I couldn't access the AI service because GOOGLE_API_KEY is not configured."
+        
         try:
-            from google import genai
-            
-            client = genai.Client()
-            
             prompt = f"""Based on the following document excerpts, answer the question.
             If the answer cannot be found in the excerpts, say so.
             
@@ -455,12 +430,7 @@ class RAGService:
             
             Answer:"""
             
-            response = client.models.generate_content(
-                model="gemini-2.0-flash-lite",
-                contents=prompt
-            )
-            
-            return response.text.strip()
+            return await gemini_client.generate_response(prompt)
         except Exception as e:
             print(f"Error generating answer: {e}")
             return "I encountered an error while processing your question."

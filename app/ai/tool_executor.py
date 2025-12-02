@@ -11,8 +11,8 @@ from app.ai.gemini_client import gemini_client
 from app.ai.tools import (tool_ask_documents, tool_create_task,
                           tool_list_tasks, tool_react_to_message,
                           tool_search_documents, tool_summarize_messages,
-                          tool_translate_text, tool_update_task_by_title,
-                          tool_web_search)
+                          tool_translate_text, tool_update_task,
+                          tool_update_task_by_title, tool_web_search)
 from google.genai import types
 from motor.motor_asyncio import AsyncIOMotorDatabase
 

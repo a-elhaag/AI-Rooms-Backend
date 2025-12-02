@@ -1,16 +1,67 @@
 """
 Google Gemini Client wrapper for AI operations.
+Provides centralized access to Gemini API with retry logic and error handling.
 """
 
+import asyncio
+import random
 from typing import Any, Dict, List, Optional
 
 from app.config import get_settings
 from google import genai
 from google.genai import types
 
+# Retry configuration
+MAX_RETRIES = 3
+BASE_DELAY = 1.0  # seconds
+MAX_DELAY = 10.0  # seconds
+
+
+async def retry_with_backoff(func, *args, **kwargs):
+    """
+    Execute a function with exponential backoff retry logic.
+    
+    Args:
+        func: Async function to execute
+        *args: Positional arguments
+        **kwargs: Keyword arguments
+        
+    Returns:
+        Function result
+        
+    Raises:
+        Last exception if all retries fail
+    """
+    last_exception = None
+    
+    for attempt in range(MAX_RETRIES):
+        try:
+            return await asyncio.to_thread(func, *args, **kwargs)
+        except Exception as e:
+            last_exception = e
+            error_str = str(e).lower()
+            
+            # Check for retryable errors (503, overloaded, rate limit)
+            is_retryable = any(x in error_str for x in ['503', 'overload', 'rate', 'quota', 'unavailable'])
+            
+            if not is_retryable or attempt == MAX_RETRIES - 1:
+                raise
+            
+            # Calculate delay with jitter
+            delay = min(BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), MAX_DELAY)
+            print(f"[GeminiClient] Retry {attempt + 1}/{MAX_RETRIES} after {delay:.1f}s: {e}")
+            await asyncio.sleep(delay)
+    
+    raise last_exception
+
 
 class GeminiClient:
-    """Wrapper for Google Gemini API."""
+    """
+    Wrapper for Google Gemini API with retry logic and centralized configuration.
+    
+    This is the single source of truth for Gemini API access in the application.
+    All AI modules should use this client instead of creating their own.
+    """
 
     def __init__(self):
         settings = get_settings()
@@ -22,6 +73,15 @@ class GeminiClient:
     def is_configured(self) -> bool:
         """Check if client is configured with API key."""
         return bool(self.client)
+    
+    def get_raw_client(self) -> Optional[genai.Client]:
+        """
+        Get the raw genai.Client for advanced operations.
+        
+        Returns:
+            genai.Client or None if not configured
+        """
+        return self.client
 
     async def generate_response(
         self,
@@ -175,5 +235,31 @@ class GeminiClient:
         return response
 
 
-# Global instance
+    async def generate_embedding(self, text: str, model: str = "models/text-embedding-004") -> List[float]:
+        """
+        Generate embedding for text.
+        
+        Args:
+            text: Text to embed (will be truncated to 8000 chars)
+            model: Embedding model name
+            
+        Returns:
+            List[float]: Embedding vector (768 dimensions) or zeros on failure
+        """
+        if not self.client:
+            print("Error generating embedding: GOOGLE_API_KEY not configured")
+            return [0.0] * 768
+        
+        try:
+            result = self.client.models.embed_content(
+                model=model,
+                contents=text[:8000]  # Limit text length
+            )
+            return result.embeddings[0].values
+        except Exception as e:
+            print(f"Error generating embedding: {e}")
+            return [0.0] * 768
+
+
+# Global instance - use this everywhere instead of creating new clients
 gemini_client = GeminiClient()

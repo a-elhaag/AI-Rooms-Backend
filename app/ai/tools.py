@@ -144,10 +144,6 @@ async def tool_update_task_by_title(
     return result.model_dump()
 
 
-# Alias for orchestrator
-tool_update_task = tool_update_task_by_title
-
-
 async def tool_react_to_message(
     db: AsyncIOMotorDatabase,
     message_id: str,

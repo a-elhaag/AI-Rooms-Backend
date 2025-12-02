@@ -3,7 +3,7 @@ Task service for task management.
 """
 import uuid
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from app.schemas.task import TaskCreate, TaskOut, TaskUpdate
 from bson import ObjectId
@@ -12,6 +12,9 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 class TaskService:
     """Service for task operations."""
+    
+    # Simple in-memory cache for user lookups (cleared on restart)
+    _user_cache: Dict[str, str] = {}
     
     def __init__(self, db: AsyncIOMotorDatabase):
         """
@@ -22,6 +25,38 @@ class TaskService:
         """
         self.db = db
         self.collection = db.tasks
+    
+    async def _get_assignee_name(self, assignee_id: Optional[str]) -> Optional[str]:
+        """
+        Get assignee name from ID with caching.
+        
+        Args:
+            assignee_id: User ID or 'ai'
+            
+        Returns:
+            Username or None
+        """
+        if not assignee_id:
+            return None
+        
+        if assignee_id == "ai":
+            return "Veya"
+        
+        # Check cache first
+        if assignee_id in self._user_cache:
+            return self._user_cache[assignee_id]
+        
+        # Fetch from DB
+        try:
+            user = await self.db.users.find_one({"_id": ObjectId(assignee_id)})
+            if user:
+                username = user.get("username")
+                self._user_cache[assignee_id] = username
+                return username
+        except Exception:
+            pass
+        
+        return None
     
     async def create_task(self, room_id: str, task_data: TaskCreate) -> TaskOut:
         """
@@ -50,18 +85,8 @@ class TaskService:
 
         await self.collection.insert_one(task_doc)
 
-        # Determine assignee name
-        assignee_name = None
-        if task_data.assignee_id:
-            if task_data.assignee_id == "ai":
-                assignee_name = "Veya"
-            else:
-                try:
-                    user = await self.db.users.find_one({"_id": ObjectId(task_data.assignee_id)})
-                    if user:
-                        assignee_name = user.get("username")
-                except:
-                    pass
+        # Get assignee name using cached lookup
+        assignee_name = await self._get_assignee_name(task_data.assignee_id)
 
         return TaskOut(
             id=task_id,
@@ -88,18 +113,7 @@ class TaskService:
         tasks = []
 
         async for doc in cursor:
-            assignee_name = None
-            if doc.get("assignee_id"):
-                if doc["assignee_id"] == "ai":
-                    assignee_name = "Veya"
-                else:
-                    # In a real app with many tasks, we would use $lookup aggregation
-                    try:
-                        user = await self.db.users.find_one({"_id": ObjectId(doc["assignee_id"])})
-                        if user:
-                            assignee_name = user.get("username")
-                    except:
-                        pass
+            assignee_name = await self._get_assignee_name(doc.get("assignee_id"))
 
             tasks.append(TaskOut(
                 id=doc["id"],
@@ -146,18 +160,8 @@ class TaskService:
         if not result:
             return None
 
-        # Get assignee name
-        assignee_name = None
-        if result.get("assignee_id"):
-            if result["assignee_id"] == "ai":
-                assignee_name = "Veya"
-            else:
-                try:
-                    user = await self.db.users.find_one({"_id": ObjectId(result["assignee_id"])})
-                    if user:
-                        assignee_name = user.get("username")
-                except:
-                    pass
+        # Get assignee name using cached lookup
+        assignee_name = await self._get_assignee_name(result.get("assignee_id"))
 
         return TaskOut(
             id=result["id"],
@@ -185,18 +189,8 @@ class TaskService:
         if not doc:
             return None
 
-        # Get assignee name
-        assignee_name = None
-        if doc.get("assignee_id"):
-            if doc["assignee_id"] == "ai":
-                assignee_name = "Veya"
-            else:
-                try:
-                    user = await self.db.users.find_one({"_id": ObjectId(doc["assignee_id"])})
-                    if user:
-                        assignee_name = user.get("username")
-                except:
-                    pass
+        # Get assignee name using cached lookup
+        assignee_name = await self._get_assignee_name(doc.get("assignee_id"))
 
         return TaskOut(
             id=doc["id"],
