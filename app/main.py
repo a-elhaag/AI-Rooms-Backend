@@ -19,7 +19,7 @@ from app.routers import (
     ws,
 )
 
-# Configure logging
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
