@@ -21,31 +21,28 @@ dist/
 .coverage
 htmlcov/
 tests/
-
-# Git
-.git/
-.gitignore
-
-# IDEs and editors
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+*.log
+*.env
+.env.*
+*.DS_Store
+*.git
+*.gitignore
+*.md
+tests/
+docs/
 .vscode/
 .idea/
-*.swp
-*.swo
-*~
-
-# Local environment / secrets
-.env
-.env.local
-*.pem
-*.key
-
-# Docker-compose / local dev files (keep Dockerfile in context)
+node_modules/
 docker-compose.yml
-.dockerignore
-
-# Logs and local files
-*.log
-*.sqlite3
+postman_collection.json
+QUICKSTART.md
+README.md
+GEMINI_MODELS.md
 tmp/
 
 # Node
