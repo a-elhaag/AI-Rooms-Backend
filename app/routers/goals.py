@@ -22,21 +22,28 @@ async def get_room_goals(
     room_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
     user_id: str = Depends(get_current_user_id)
-):
+) -> List[GoalOut]:
     """
-    Get all goals for a room.
+    Retrieve all goals for a specific room.
+
+    Args:
+        room_id: The ID of the room
+        db: Database instance
+        user_id: Current user ID
+
+    Returns:
+        List[GoalOut]: All goals in the room
     """
-    # Verify user is a member of the room
-    room_service = RoomService(db)
-    if not await room_service.is_member(room_id, user_id):
+    # Ensure the user is a member of the room
+    if not await RoomService(db).is_member(room_id, user_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not a member of this room"
         )
-    
-    service = GoalService(db)
-    goals = await service.get_room_goals(room_id)
-    return goals
+
+    # Fetch and return room goals
+    return await GoalService(db).get_room_goals(room_id)
+
 
 
 @router.post("/rooms/{room_id}/goals", response_model=GoalOut)
@@ -45,21 +52,29 @@ async def create_goal(
     goal_data: GoalCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
     user_id: str = Depends(get_current_user_id)
-):
+) -> GoalOut:
     """
-    Create a new goal for a room.
+    Create a new goal within a room.
+
+    Args:
+        room_id: The ID of the room
+        goal_data: Data for the new goal
+        db: Database instance
+        user_id: Current user ID
+
+    Returns:
+        GoalOut: The newly created goal
     """
-    # Verify user is a member of the room
-    room_service = RoomService(db)
-    if not await room_service.is_member(room_id, user_id):
+    # Check membership
+    if not await RoomService(db).is_member(room_id, user_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not a member of this room"
         )
-    
-    service = GoalService(db)
-    goal = await service.create_goal(room_id, goal_data, user_id)
-    return goal
+
+    # Create and return the goal
+    return await GoalService(db).create_goal(room_id, goal_data, user_id)
+
 
 
 @router.put("/goals/{goal_id}", response_model=GoalOut)

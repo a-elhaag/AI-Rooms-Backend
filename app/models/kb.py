@@ -15,9 +15,9 @@ class RoomKB(BaseModel):
 
     id: Optional[PyObjectId] = Field(default=None, alias="_id")
     room_id: PyObjectId
-    summary: str = Field(default="")
-    key_decisions: list[str] = Field(default_factory=list)
-    important_links: list[str] = Field(default_factory=list)
+    summary: str = ""
+    key_decisions: List[str] = Field(default_factory=list)
+    important_links: List[str] = Field(default_factory=list)
     last_updated: datetime = Field(default_factory=datetime.utcnow)
 
     class Config:
@@ -31,6 +31,9 @@ class KnowledgeBaseResponse(BaseModel):
 
     room_id: str
     summary: str
-    key_decisions: list[str]
-    important_links: list[str]
-    updated_at: str
+    key_decisions: List[str] = Field(default_factory=list)
+    important_links: List[str] = Field(default_factory=list)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        orm_mode = True
