@@ -11,26 +11,51 @@ class UtilityEvaluator:
     Uses a combination of heuristics and LLM reasoning to score
     different possible actions and choose the most useful one.
     """
-    
     def __init__(self):
-      """
-    Initialize utility evaluator.
+     """
+    Initialize the utility evaluator.
 
-      """
-    self.llm = None
-    self.scoring_prompt = None
-    self.criteria = {}
-
-   
-def choose_action(self, candidates: list[dict], context: dict) -> dict:
+    TODO:
+        - Load or initialize the LLM model
+        - Configure scoring prompts
+        - Define evaluation criteria
     """
-    Randomly pick an action (testing only).
-    """
-    if not candidates:
-        return {}
+    self.llm = None                 # Placeholder for LLM instance
+    self.prompts = {}               # Scoring / evaluation prompts
+    self.criteria = {}              # Weights, rules, scoring configuration
+    self.initialized = False        # Becomes True once setup is done
 
-    return random.choice(candidates)
-
+    
+    def choose_action(
+        self,
+        candidates: list[dict],
+        context: dict
+    ) -> dict:
+        """
+        Choose the best action from a list of candidates.
+        
+        Each candidate is a dict with:
+        - type: "respond", "create_task", "update_kb", etc.
+        - data: Action-specific data
+        - reasoning: Why this action might be good
+        
+        Args:
+            candidates: List of candidate actions
+            context: Room context (goals, tasks, recent messages, etc.)
+            
+        Returns:
+            dict: Chosen action
+            
+        TODO:
+            - Score each candidate based on:
+                - Alignment with room goals
+                - Urgency/importance
+                - Recency of similar actions
+                - User preferences
+            - Choose highest scoring action
+            - Return chosen action
+        """
+        pass
     
     def _score_candidate(
         self,
@@ -54,10 +79,25 @@ def choose_action(self, candidates: list[dict], context: dict) -> dict:
         """
         pass
     
-    async def _llm_evaluate(self, candidates, context):
-     if not candidates:
-        return {}
-
-    # simple heuristic: pick candidate with longest reasoning
-    return max(candidates, key=lambda c: len(c.get("reasoning", "")))
-
+    async def _llm_evaluate(
+        self,
+        candidates: list[dict],
+        context: dict
+    ) -> dict:
+        """
+        Use LLM to evaluate and choose action.
+        
+        Args:
+            candidates: List of candidate actions
+            context: Room context
+            
+        Returns:
+            dict: Chosen action
+            
+        TODO:
+            - Build prompt with candidates and context
+            - Call LLM
+            - Parse response to get chosen action
+            - Return action
+        """
+        pass

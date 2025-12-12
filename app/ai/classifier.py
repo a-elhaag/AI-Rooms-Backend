@@ -8,39 +8,40 @@ class ShouldRespondClassifier:
 
     """Decides if the AI should respond to a chat message using rules and LLM."""
 
-    def __init__(self):
-        """Initialize classifier with rule patterns."""
-        self.ai_triggers = [
-            r"\b(hey\s+)?ai\b",
-            r"\b(hey\s+)?assistant\b",
-            r"\b(hey\s+)?bot\b",
-            r"@ai",
-            r"@assistant",
-        ]
+   def __init__(self):
+    """Initialize classifier with rule patterns."""
+    self.ai_triggers = [
+        r"\b(hey\s+)?ai\b",
+        r"\b(hey\s+)?assistant\b",
+        r"\b(hey\s+)?bot\b",
+        r"@ai",
+        r"@assistant",
+    ]
 
-        self.question_patterns = [
-            r"\bcan\s+you\b",
-            r"\bcould\s+you\b",
-            r"\bwill\s+you\b",
-            r"\bwould\s+you\b",
-            r"\bplease\b.*\?",
-            r"\bhelp\s+(me|us)\b",
-            r"\bwhat\s+(is|are|was|were)",
-            r"\bhow\s+(do|does|can|to)",
-            r"\bwhy\s+(is|are|do|does)",
-            r"\bwhen\s+(is|are|do|does|should)",
-            r"\bwhere\s+(is|are|do|does)",
-        ]
+    self.question_patterns = [
+        r"\bcan\s+you\b",
+        r"\bcould\s+you\b",
+        r"\bwill\s+you\b",
+        r"\bwould\s+you\b",
+        r"\bplease\b.*\?",
+        r"\bhelp\s+(me|us)\b",
+        r"\bwhat\s+(is|are|was|were)",
+        r"\bhow\s+(do|does|can|to)",
+        r"\bwhy\s+(is|are|do|does)",
+        r"\bwhen\s+(is|are|do|does|should)",
+        r"\bwhere\s+(is|are|do|does)",
+    ]
 
-        self.task_keywords = [
-            r"\bcreate\s+a?\s+task\b",
-            r"\badd\s+a?\s+task\b",
-            r"\btodo\b",
-            r"\bneed\s+to\s+do\b",
-            r"\bremind\s+me\b",
-            r"\bschedule\b",
-            r"\bassign\b",
-        ]
+    self.task_keywords = [
+        r"\bcreate\s+a?\s+task\b",
+        r"\badd\s+a?\s+task\b",
+        r"\btodo\b",
+        r"\bneed\s+to\s+do\b",
+        r"\bremind\s+me\b",
+        r"\bschedule\b",
+        r"\bassign\b",
+    ]
+
 
     async def should_respond(
         self, room_id: str, user_id: str, content: str, context: dict

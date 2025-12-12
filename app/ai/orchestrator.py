@@ -331,7 +331,7 @@ class AIOrchestrator:
                 for goal in goals
             ]
             
-            # Get KB
+            # Get KnowledgeBase
             kb_service = KBService(self.db)
             kb = await kb_service.get_room_kb(room_id)
             if kb:
