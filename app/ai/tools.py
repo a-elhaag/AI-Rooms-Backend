@@ -100,18 +100,16 @@ async def tool_update_task(
 async def tool_list_tasks(
     db: AsyncIOMotorDatabase, room_id: str, status: Optional[str] = None
 ) -> list[dict]:
-
+    """
+    List tasks in a room, optionally filtered by status.
+    """
     service = TaskService(db)
     tasks = await service.get_room_tasks(room_id)
 
     results = [task.model_dump() for task in tasks]
 
-    if status is not None:
-        filtered = []
-        for item in results:
-            if item.get("status") == status:
-                filtered.append(item)
-        return filtered
+    if status:
+        results = [t for t in results if t.get("status") == status]
 
     return results
 
