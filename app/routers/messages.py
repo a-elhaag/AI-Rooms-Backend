@@ -41,6 +41,26 @@ async def create_message(
     db: AsyncIOMotorDatabase = Depends(get_database),
     current_user_id: str = Depends(get_current_user_id)
 ) -> MessageOut:
-    
+    """
+    Create a new message in a room.
+
+    Args:
+        room_id: ID of the room.
+        message_data: Message content and type.
+        db: Database instance.
+        current_user_id: ID of the user sending the message.
+
+    Returns:
+        MessageOut: The created message.
+    """
+    # Ensure user is a member of the room
+    room_service = RoomService(db)
+    if not await room_service.is_member(room_id, current_user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this room"
+        )
+
     message_service = MessageService(db)
     return await message_service.create_message(room_id, message_data, current_user_id)
+
