@@ -1,6 +1,3 @@
-"""
-User profile router.
-"""
 from fastapi import APIRouter, Depends, HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -21,9 +18,6 @@ async def get_my_profile(
     user_id: str = Depends(get_current_user_id),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
-    """
-    Get current user's profile.
-    """
     service = ProfileService(db)
     profile = await service.get_user_profile(user_id)
 
@@ -40,9 +34,6 @@ async def update_my_profile(
     user_id: str = Depends(get_current_user_id),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
-    """
-    Update current user's profile.
-    """
     service = ProfileService(db)
     profile = await service.update_profile(user_id, profile_data)
 
