@@ -104,12 +104,13 @@ async def tool_list_tasks(
     service = TaskService(db)
     tasks = await service.get_room_tasks(room_id)
 
-    results = [t.model_dump() for t in tasks]
+    results = [task.model_dump() for task in tasks]
 
     if status:
-        results = list(filter(lambda t: t.get("status") == status, results))
+        results = [r for r in results if r["status"] == status]
 
     return results
+
 
 
 
