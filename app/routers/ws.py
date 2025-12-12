@@ -329,17 +329,18 @@ async def websocket_endpoint(
 
                     # Broadcast user message to room
                     await manager.broadcast_to_room(room_id, {
-                        "type": "message",
-                        "message": {
-                            "id": saved_message.id,
-                            "room_id": saved_message.room_id,
-                            "content": saved_message.content,
-                            "sender_type": saved_message.sender_type,
-                            "sender_id": saved_message.sender_id,
-                            "sender_name": saved_message.sender_name,
-                            "created_at": saved_message.created_at.isoformat() if hasattr(saved_message.created_at, 'isoformat') else str(saved_message.created_at)
-                        }
-                    })
+    "type": "message",
+    "message": {
+        "id": saved_message.id,
+        "room_id": saved_message.room_id,
+        "content": saved_message.content,
+        "sender_type": saved_message.sender_type,
+        "sender_id": saved_message.sender_id,
+        "sender_name": saved_message.sender_name,
+        "created_at": getattr(saved_message.created_at, 'isoformat', lambda: str(saved_message.created_at))()
+    }
+})
+
                     
                     # Check for @ mentions
                     mentions = parse_mentions(content)
@@ -428,13 +429,20 @@ async def websocket_endpoint(
                 })
             
     except WebSocketDisconnect:
-        await manager.disconnect(websocket, room_id)
-        await manager.broadcast_to_room(room_id, {
-            "type": "system",
-            "content": f"{user.username} left the chat",
-            "room_id": room_id,
-            "timestamp": None
-        })
+    # Remove the websocket from the manager
+     await manager.disconnect(websocket, room_id)
+
+    # Broadcast a system message to remaining users
+     await manager.broadcast_to_room(room_id, {
+        "type": "system",
+        "content": f"{user.username} has left the chat",
+        "room_id": room_id,
+        "timestamp": None
+    })
+
+
+
+        
     except Exception as e:
         # Log error in real app
         import logging
