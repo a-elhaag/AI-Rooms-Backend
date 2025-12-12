@@ -117,9 +117,14 @@ async def tool_list_tasks(
     results = [t.model_dump() for t in tasks]
 
     if status:
-        results = [t for t in results if t["status"] == status]
+        filtered_results = []
+        for t in results:
+            if t.get("status") == status:
+                filtered_results.append(t)
+        results = filtered_results
 
     return results
+
 
 
 # Communication Tools
