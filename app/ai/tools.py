@@ -106,10 +106,15 @@ async def tool_list_tasks(
 
     results = [task.model_dump() for task in tasks]
 
-    if status:
-        results = [r for r in results if r["status"] == status]
+    if status is not None:
+        filtered = []
+        for item in results:
+            if item.get("status") == status:
+                filtered.append(item)
+        return filtered
 
     return results
+
 
 
 
