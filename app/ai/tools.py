@@ -33,7 +33,6 @@ async def tool_create_task(
 ) -> dict:
     """
     Create a new task in a room.
-
     Args:
         db: Database instance
         room_id: Room ID
