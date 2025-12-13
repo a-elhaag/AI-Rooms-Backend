@@ -23,7 +23,6 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 # Task Management Tools
 
-
 async def tool_create_task(
     db: AsyncIOMotorDatabase,
     room_id: str,
