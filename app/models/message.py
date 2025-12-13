@@ -11,15 +11,15 @@ from app.models.user import PyObjectId
 
 class Message(BaseModel):
     """Message document model for MongoDB."""
-    
-    id: Optional[PyObjectId] = Field(default=None, alias="_id")
-    room_id: PyObjectId
-    user_id: Optional[Union[PyObjectId, Literal["ai"]]] = None
-    content: str
-    type: Literal["text", "image", "system"] = "text"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    
+
+    id: Optional[PyObjectId] = Field(default=None, alias="_id")  # MongoDB document _id
+    room_id: PyObjectId                                         # reference to Room
+    user_id: Optional[Union[PyObjectId, Literal["ai"]]] = None  # user or AI sender
+    content: str                                                # message content
+    type: Literal["text", "image", "system"] = "text"           # message type
+    created_at: datetime = Field(default_factory=datetime.utcnow)  # creation timestamp
+
     class Config:
-        populate_by_name = True
-        arbitrary_types_allowed = True
-        json_encoders = {PyObjectId: str}
+        populate_by_name = True              # allows alias usage (_id) in input/output
+        arbitrary_types_allowed = True       # allows PyObjectId type
+        json_encoders = {PyObjectId: str}    # encode ObjectId as str in JSON

@@ -11,17 +11,20 @@ class UtilityEvaluator:
     Uses a combination of heuristics and LLM reasoning to score
     different possible actions and choose the most useful one.
     """
-    
     def __init__(self):
-        """
-        Initialize utility evaluator.
-        
-        TODO:
-            - Load LLM for evaluation
-            - Set up scoring prompts
-            - Configure evaluation criteria
-        """
-        pass
+     """
+    Initialize the utility evaluator.
+
+    TODO:
+        - Load or initialize the LLM model
+        - Configure scoring prompts
+        - Define evaluation criteria
+    """
+    self.llm = None                 # Placeholder for LLM instance
+    self.prompts = {}               # Scoring / evaluation prompts
+    self.criteria = {}              # Weights, rules, scoring configuration
+    self.initialized = False        # Becomes True once setup is done
+
     
     def choose_action(
         self,

@@ -35,11 +35,11 @@ async def update_my_profile(
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     service = ProfileService(db)
+
     profile = await service.update_profile(user_id, profile_data)
+    if profile:
+        return profile
 
-    if not profile:
-        # Should create if not exists inside update, but just in case
-        await service.create_default_profile(user_id)
-        profile = await service.update_profile(user_id, profile_data)
-
-    return profile
+    # Fallback: create then update
+    await service.create_default_profile(user_id)
+    return await service.update_profile(user_id, profile_data)

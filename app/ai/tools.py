@@ -101,24 +101,19 @@ async def tool_list_tasks(
 ) -> list[dict]:
     """
     List tasks in a room, optionally filtered by status.
-
-    Args:
-        db: Database instance
-        room_id: Room ID
-        status: Optional status filter
-
-    Returns:
-        list[dict]: List of tasks
     """
     service = TaskService(db)
     tasks = await service.get_room_tasks(room_id)
 
-    results = [t.model_dump() for t in tasks]
+    results = [task.model_dump() for task in tasks]
 
     if status:
-        results = [t for t in results if t["status"] == status]
+        results = [t for t in results if t.get("status") == status]
 
     return results
+
+
+
 
 
 # Communication Tools
@@ -210,8 +205,6 @@ async def tool_update_room_kb(
 
 
 # Search and Information Tools
-
-
 async def tool_web_search(query: str) -> list[dict]:
     """
     Perform web search and return results.
