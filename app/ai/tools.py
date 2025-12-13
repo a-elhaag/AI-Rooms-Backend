@@ -29,6 +29,7 @@ async def tool_create_task(
     title: str,
     assignee_id: Optional[str] = None,
     due_date: Optional[str] = None,
+    priority: Optional[str] = None,
 ) -> dict:
     """
     Create a new task in a room.
@@ -39,6 +40,7 @@ async def tool_create_task(
         title: Task title
         assignee_id: Optional assignee user ID or "ai"
         due_date: Optional due date (ISO format)
+        priority: Optional priority flag. Accepts 'urgent'|'high'|'red', 'mid'|'medium'|'yellow', 'low'|'green'. Defaults to green.
 
     Returns:
         dict: Created task information
@@ -53,10 +55,22 @@ async def tool_create_task(
         except:
             pass
 
+    # Normalize priority inputs into one of: 'red', 'yellow', 'green'
+    priority_val = "green"
+    if priority:
+        p = priority.strip().lower()
+        if p in ("urgent", "high", "red"):
+            priority_val = "red"
+        elif p in ("mid", "medium", "yellow"):
+            priority_val = "yellow"
+        elif p in ("low", "green"):
+            priority_val = "green"
+
     task_data = TaskCreate(
         title=title,
         assignee_id=assignee_id,
-        due_date=parsed_date
+        due_date=parsed_date,
+        priority=priority_val
     )
 
     result = await service.create_task(room_id, task_data)

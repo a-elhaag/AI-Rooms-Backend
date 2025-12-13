@@ -13,6 +13,8 @@ class TaskCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     assignee_id: Optional[str] = None
     due_date: Optional[datetime] = None
+    # Priority represented as color flags: 'red' = urgent, 'yellow' = mid, 'green' = low
+    priority: Optional[Literal["red", "yellow", "green"]] = Field(default="green")
 
 
 class TaskUpdate(BaseModel):
@@ -22,6 +24,7 @@ class TaskUpdate(BaseModel):
     status: Optional[Literal["todo", "in_progress", "done"]] = None
     assignee_id: Optional[str] = None
     due_date: Optional[datetime] = None
+    priority: Optional[Literal["red", "yellow", "green"]] = None
 
 
 class TaskOut(BaseModel):
@@ -34,6 +37,8 @@ class TaskOut(BaseModel):
     assignee_id: Optional[str] = None
     assignee_name: Optional[str] = None  # "AI" or username
     due_date: Optional[str] = None
+    priority: Literal["red", "yellow", "green"] = "green"
+    priority_flag: str
     created_at: str
     
     class Config:

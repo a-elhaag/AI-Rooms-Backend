@@ -45,6 +45,7 @@ class TaskService:
             "status": "todo",
             "assignee_id": task_data.assignee_id,
             "due_date": task_data.due_date,
+            "priority": task_data.priority or "green",
             "created_at": now,
             "updated_at": now
         }
@@ -72,6 +73,8 @@ class TaskService:
             assignee_id=task_doc["assignee_id"],
             assignee_name=assignee_name,
             due_date=task_doc["due_date"].isoformat() if task_doc["due_date"] else None,
+            priority=task_doc.get("priority", "green"),
+            priority_flag={"red": "🔴", "yellow": "🟡", "green": "🟢"}.get(task_doc.get("priority", "green"), "🟢"),
             created_at=task_doc["created_at"].isoformat()
         )
     
@@ -110,6 +113,8 @@ class TaskService:
                 assignee_id=doc.get("assignee_id"),
                 assignee_name=assignee_name,
                 due_date=doc.get("due_date").isoformat() if doc.get("due_date") else None,
+                priority=doc.get("priority", "green"),
+                priority_flag={"red": "🔴", "yellow": "🟡", "green": "🟢"}.get(doc.get("priority", "green"), "🟢"),
                 created_at=doc["created_at"].isoformat() if isinstance(doc["created_at"], datetime) else doc["created_at"]
             ))
 
@@ -137,6 +142,8 @@ class TaskService:
             update_fields["assignee_id"] = task_data.assignee_id
         if task_data.due_date is not None:
             update_fields["due_date"] = task_data.due_date
+        if task_data.priority is not None:
+            update_fields["priority"] = task_data.priority
 
         result = await self.collection.find_one_and_update(
             {"id": task_id},
@@ -168,6 +175,8 @@ class TaskService:
             assignee_id=result.get("assignee_id"),
             assignee_name=assignee_name,
             due_date=result.get("due_date").isoformat() if result.get("due_date") else None,
+            priority=result.get("priority", "green"),
+            priority_flag={"red": "🔴", "yellow": "🟡", "green": "🟢"}.get(result.get("priority", "green"), "🟢"),
             created_at=result["created_at"].isoformat() if isinstance(result["created_at"], datetime) else result["created_at"]
         )
     
@@ -207,5 +216,7 @@ class TaskService:
             assignee_id=doc.get("assignee_id"),
             assignee_name=assignee_name,
             due_date=doc.get("due_date").isoformat() if doc.get("due_date") else None,
+            priority=doc.get("priority", "green"),
+            priority_flag={"red": "🔴", "yellow": "🟡", "green": "🟢"}.get(doc.get("priority", "green"), "🟢"),
             created_at=doc["created_at"].isoformat() if isinstance(doc["created_at"], datetime) else doc["created_at"]
         )
