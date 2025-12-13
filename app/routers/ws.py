@@ -463,15 +463,11 @@ async def websocket_endpoint(
                         
                         print(f"[AI DEBUG] AI result: {ai_result}")
                         
-                        # Broadcast tool execution results (tasks created/updated)
+                        # Broadcast tool execution results (reactions only)
+                        # NOTE: task_created/task_updated are already broadcast by tool_create_task/tool_update_task
                         if ai_result and ai_result.get("tools_executed"):
                             for tool_result in ai_result["tools_executed"]:
-                                if tool_result["type"] in ["task_created", "task_updated"]:
-                                    await manager.broadcast_to_room(room_id, {
-                                        "type": tool_result["type"],
-                                        "task": tool_result["data"]
-                                    })
-                                elif tool_result["type"] == "reaction":
+                                if tool_result["type"] == "reaction":
                                     await manager.broadcast_to_room(room_id, {
                                         "type": "reaction",
                                         "message_id": tool_result["message_id"],

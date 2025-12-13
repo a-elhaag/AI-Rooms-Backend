@@ -201,12 +201,13 @@ class ToolExecutor:
         # Build minimal system instruction for tool execution
         system_instruction = self._build_system_instruction(room_context, room_members)
 
-        # Create chat with tools
+        # Create chat with tools - force tool calling with ANY mode
         try:
             chat = await gemini_client.create_chat(
                 history=[],  # Minimal history for tool execution
                 system_instruction=system_instruction,
                 tools=self._get_tool_definitions(room_members),
+                tool_config={"function_calling_config": {"mode": "ANY"}},  # Force tool call
             )
 
             if not chat:

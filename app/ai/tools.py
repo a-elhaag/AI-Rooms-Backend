@@ -61,7 +61,28 @@ async def tool_create_task(
     )
 
     result = await service.create_task(room_id, task_data)
-    return result.model_dump()
+    task_dict = result.model_dump()
+
+    # Broadcast so clients see AI-created tasks immediately
+    try:
+        from app.routers.ws import manager
+        await manager.broadcast_to_room(room_id, {
+            "type": "task_created",
+            "task": {
+                "id": task_dict.get("id"),
+                "room_id": task_dict.get("room_id"),
+                "title": task_dict.get("title"),
+                "status": task_dict.get("status"),
+                "assignee_id": task_dict.get("assignee_id"),
+                "assignee_name": task_dict.get("assignee_name"),
+                "due_date": task_dict.get("due_date"),
+                "created_at": task_dict.get("created_at"),
+            }
+        })
+    except Exception as e:
+        print(f"[tool_create_task] Broadcast failed: {e}")
+
+    return task_dict
 
 
 async def tool_update_task(
@@ -95,7 +116,27 @@ async def tool_update_task(
     if not result:
         return {"error": "Task not found"}
 
-    return result.model_dump()
+    task_dict = result.model_dump()
+
+    try:
+        from app.routers.ws import manager
+        await manager.broadcast_to_room(task_dict.get("room_id"), {
+            "type": "task_updated",
+            "task": {
+                "id": task_dict.get("id"),
+                "room_id": task_dict.get("room_id"),
+                "title": task_dict.get("title"),
+                "status": task_dict.get("status"),
+                "assignee_id": task_dict.get("assignee_id"),
+                "assignee_name": task_dict.get("assignee_name"),
+                "due_date": task_dict.get("due_date"),
+                "created_at": task_dict.get("created_at"),
+            }
+        })
+    except Exception as e:
+        print(f"[tool_update_task] Broadcast failed: {e}")
+
+    return task_dict
 
 
 async def tool_update_task_by_title(
@@ -143,7 +184,27 @@ async def tool_update_task_by_title(
     if not result:
         return {"error": "Failed to update task"}
 
-    return result.model_dump()
+    task_dict = result.model_dump()
+
+    try:
+        from app.routers.ws import manager
+        await manager.broadcast_to_room(room_id, {
+            "type": "task_updated",
+            "task": {
+                "id": task_dict.get("id"),
+                "room_id": task_dict.get("room_id"),
+                "title": task_dict.get("title"),
+                "status": task_dict.get("status"),
+                "assignee_id": task_dict.get("assignee_id"),
+                "assignee_name": task_dict.get("assignee_name"),
+                "due_date": task_dict.get("due_date"),
+                "created_at": task_dict.get("created_at"),
+            }
+        })
+    except Exception as e:
+        print(f"[tool_update_task_by_title] Broadcast failed: {e}")
+
+    return task_dict
 
 
 async def tool_react_to_message(

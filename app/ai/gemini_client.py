@@ -149,6 +149,7 @@ class GeminiClient:
             "Be concise, focus on useful answers, and use light humor only when the tone is casual—skip jokes when things are urgent or serious."
         ),
         tools: Optional[List[Dict[str, Any]]] = None,
+        tool_config: Optional[Dict[str, Any]] = None,
     ) -> Any:
         """
         Create a new chat session.
@@ -157,6 +158,7 @@ class GeminiClient:
             history: List of dicts with 'role' ('user' or 'model') and 'parts' (text)
             system_instruction: System prompt
             tools: Optional list of tool definitions (JSON schema)
+            tool_config: Optional tool configuration (e.g., force tool calling with ANY mode)
 
         Returns:
             ChatSession object
@@ -167,6 +169,8 @@ class GeminiClient:
         config = {"system_instruction": system_instruction}
         if tools:
             config["tools"] = tools
+        if tool_config:
+            config["tool_config"] = tool_config
 
         try:
             # Convert history to proper Content objects
