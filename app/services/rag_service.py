@@ -209,14 +209,22 @@ class RAGService:
         
         # Extract text based on file type
         pages = []
-        if file_type == "pdf":
-            pages = await self.extract_text_from_pdf(file_content)
-        elif file_type in ["pptx", "ppt"]:
-            pages = await self.extract_text_from_pptx(file_content)
-        else:
+        try:
+            if file_type == "pdf":
+                pages = await self.extract_text_from_pdf(file_content)
+            elif file_type in ["pptx", "ppt"]:
+                pages = await self.extract_text_from_pptx(file_content)
+            else:
+                print(f"[RAG] Unsupported file type: {file_type}")
+                return None
+        except Exception as e:
+            print(f"[RAG] Error extracting text from {file_type}: {e}")
+            import traceback
+            traceback.print_exc()
             return None
         
         if not pages:
+            print(f"[RAG] No pages extracted from document: {filename}")
             return None
         
         # Combine all text for summary
@@ -236,7 +244,12 @@ class RAGService:
                 chunk_id = str(uuid.uuid4())
                 
                 # Generate embedding for chunk
-                embedding = await self.generate_embedding(chunk_text)
+                try:
+                    embedding = await self.generate_embedding(chunk_text)
+                except Exception as e:
+                    print(f"[RAG] Error generating embedding for chunk {chunk_index}: {e}")
+                    # Use empty embedding as fallback
+                    embedding = []
                 
                 chunk = {
                     "id": chunk_id,
@@ -251,6 +264,8 @@ class RAGService:
                 
                 chunks.append(chunk)
                 chunk_index += 1
+        
+        print(f"[RAG] Created {len(chunks)} chunks for document {filename}")
         
         # Store document metadata
         doc = {

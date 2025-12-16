@@ -72,14 +72,23 @@ async def upload_document(
     
     # Process document
     rag_service = RAGService(db)
-    document = await rag_service.process_document(
-        room_id=room_id,
-        filename=file.filename,
-        file_content=content,
-        file_type=file_type,
-        user_id=user_id,
-        username=username
-    )
+    try:
+        document = await rag_service.process_document(
+            room_id=room_id,
+            filename=file.filename,
+            file_content=content,
+            file_type=file_type,
+            user_id=user_id,
+            username=username
+        )
+    except Exception as e:
+        print(f"[upload_document] Error processing document: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process document: {str(e)}"
+        )
     
     if not document:
         raise HTTPException(

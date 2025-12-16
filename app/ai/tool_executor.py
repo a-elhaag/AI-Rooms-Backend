@@ -218,9 +218,12 @@ class ToolExecutor:
             executed_tools = []
             tool_data = {}
             reaction_emoji = None
+            max_iterations = 5  # Prevent infinite loops
+            iteration = 0
 
             # Process tool calls
-            while response.candidates and response.candidates[0].content.parts:
+            while response.candidates and response.candidates[0].content.parts and iteration < max_iterations:
+                iteration += 1
                 part = response.candidates[0].content.parts[0]
 
                 if hasattr(part, 'function_call') and part.function_call:
@@ -264,15 +267,22 @@ class ToolExecutor:
                         # Explicitly no action needed
                         break
 
-                    # Send result back to continue the loop
-                    response = chat.send_message(
-                        types.Part.from_function_response(
-                            name=tool_name, response={"result": result}
+                    # Send result back to continue the loop only if we haven't hit max iterations
+                    if iteration < max_iterations:
+                        response = chat.send_message(
+                            types.Part.from_function_response(
+                                name=tool_name, response={"result": result}
+                            )
                         )
-                    )
+                    else:
+                        print(f"[ToolExecutor] Max iterations ({max_iterations}) reached, stopping tool loop")
+                        break
                 else:
                     # No more function calls
                     break
+
+            if iteration >= max_iterations:
+                print(f"[ToolExecutor] Warning: Reached max tool execution iterations")
 
             return {
                 "tools_executed": executed_tools,
