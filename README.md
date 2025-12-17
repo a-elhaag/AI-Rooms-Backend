@@ -28,7 +28,7 @@ This is a **proof-of-concept skeleton** with:
 - ✅ Docker setup ready
 - ✅ Postman collection for testing
 - ✅ Simplified authentication (no JWT)
-- ⚠️ **Business logic is NOT implemented** (stubs/TODOs only)
+
 
 Perfect for testing deployment and architecture before implementing features!
 
